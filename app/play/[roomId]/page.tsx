@@ -1,25 +1,20 @@
 'use client'
 
-import { useEffect, useState, useCallback, use } from 'react'
+import { useEffect, useState, use } from 'react'
 import Link from 'next/link'
-import { AnimatePresence } from 'framer-motion'
+import { ArrowLeft, RefreshCcw, Copy, Check, Wifi, WifiOff } from 'lucide-react'
 import { useGameStore } from '@/store/gameStore'
 import { Board } from '@/components/game/Board'
-import { GameStatus } from '@/components/game/GameStatus'
-import { EmojiReactions } from '@/components/game/EmojiReactions'
-import { PostMatchReview } from '@/components/game/PostMatchReview'
-import { Button } from '@/components/ui/button'
+import { Terminal } from '@/components/terminal/Terminal'
 import { createClient } from '@/lib/supabase/client'
-import { toast } from '@/components/ui/use-toast'
-import type { Move, Player } from '@/lib/game/types'
 import { applyMove, getValidMoves, checkWin } from '@/lib/game/engine'
+import { applyFog } from '@/lib/game/fog'
+import type { Move, Player } from '@/lib/game/types'
 
 interface ChannelPayload {
-  type: 'move' | 'reaction' | 'join'
+  type: 'move' | 'join'
   move?: Move
   player?: Player
-  emoji?: string
-  username?: string
 }
 
 export default function MultiplayerGamePage({
@@ -29,33 +24,29 @@ export default function MultiplayerGamePage({
 }) {
   const { roomId } = use(params)
 
-  const { gameState, initGame, selectPiece, resetGame, setGameState } = useGameStore()
+  const { gameState, initGame, resetGame, setGameState } = useGameStore()
   const [myPlayer, setMyPlayer] = useState<Player | null>(null)
   const [opponentJoined, setOpponentJoined] = useState(false)
-  const [floatingReactions, setFloatingReactions] = useState<string[]>([])
   const [copied, setCopied] = useState(false)
 
   const supabase = createClient()
 
-  // Determine if it's my turn
-  const isMyTurn = myPlayer !== null && gameState.currentPlayer === myPlayer && !gameState.winner
+  const fogPlayer: Player = myPlayer ?? 'red'
+  const playerView = applyFog(gameState.board, fogPlayer)
 
   useEffect(() => {
     if (roomId === 'new') {
-      // Create a new room — host plays red
       const { generateRoomId } = require('@/lib/utils') as { generateRoomId: () => string }
       const newRoomId = generateRoomId()
       window.history.replaceState(null, '', `/play/${newRoomId}`)
       setMyPlayer('red')
       initGame('multiplayer', newRoomId)
     } else {
-      // Join existing room — second player is black
       setMyPlayer('black')
       initGame('multiplayer', roomId)
     }
   }, [roomId, initGame])
 
-  // Subscribe to Supabase Realtime channel
   useEffect(() => {
     const channel = supabase.channel(`game:${roomId}`, {
       config: { broadcast: { self: false } },
@@ -65,17 +56,20 @@ export default function MultiplayerGamePage({
       .on('broadcast', { event: 'game' }, ({ payload }: { payload: ChannelPayload }) => {
         if (payload.type === 'join') {
           setOpponentJoined(true)
-          toast({ title: 'Opponent joined!', description: 'Game is starting.' })
         }
 
         if (payload.type === 'move' && payload.move) {
-          // Apply opponent's move to our local state
           const move = payload.move
           const currentBoard = useGameStore.getState().gameState.board
           const currentPlayer = useGameStore.getState().gameState.currentPlayer
           const newBoard = applyMove(currentBoard, move)
-          const nextPlayer: Player = currentPlayer === 'red' ? 'black' : 'red'
-          const winner = checkWin(newBoard, currentPlayer)
+
+          const chainMoves = move.captures.length > 0
+            ? getValidMoves(newBoard, currentPlayer, move.to).filter(m => m.captures.length > 0)
+            : []
+          const hasChain = chainMoves.length > 0
+          const nextPlayer: Player = hasChain ? currentPlayer : (currentPlayer === 'red' ? 'black' : 'red')
+          const winner = hasChain ? null : checkWin(newBoard, currentPlayer)
           const pieces = newBoard.flat().filter(Boolean) as NonNullable<typeof newBoard[0][0]>[]
 
           setGameState({
@@ -86,18 +80,12 @@ export default function MultiplayerGamePage({
             pieces,
             winner,
             moveHistory: [...useGameStore.getState().gameState.moveHistory, move],
-            chainCapture: null,
+            chainCapture: hasChain ? move.to : null,
           })
-        }
-
-        if (payload.type === 'reaction' && payload.emoji) {
-          setFloatingReactions(prev => [...prev, payload.emoji!])
-          setTimeout(() => setFloatingReactions(prev => prev.slice(1)), 1800)
         }
       })
       .subscribe(status => {
         if (status === 'SUBSCRIBED') {
-          // Announce joining
           channel.send({
             type: 'broadcast',
             event: 'game',
@@ -106,171 +94,109 @@ export default function MultiplayerGamePage({
         }
       })
 
-    return () => {
-      supabase.removeChannel(channel)
-    }
+    return () => { supabase.removeChannel(channel) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId, myPlayer])
 
-  const handleCellClick = useCallback(
-    (row: number, col: number) => {
-      if (!isMyTurn || gameState.winner) return
-      selectPiece(row, col)
-
-      // After selectPiece, check if a move was made by comparing history length
-      // We broadcast via a useEffect watching moveHistory instead
-    },
-    [isMyTurn, gameState.winner, selectPiece]
-  )
-
-  // Broadcast move whenever moveHistory changes and it was our move
-  const lastMove = gameState.moveHistory[gameState.moveHistory.length - 1]
-  const prevMoveCount = gameState.moveHistory.length
-
+  // Broadcast our moves
+  const moveCount = gameState.moveHistory.length
+  const lastMove = gameState.moveHistory[moveCount - 1]
   useEffect(() => {
     if (!lastMove || !myPlayer) return
-    // Only broadcast if the move resulted in it being opponent's turn
-    // (meaning we just made a move)
     const prevPlayer: Player = gameState.currentPlayer === 'red' ? 'black' : 'red'
     if (prevPlayer !== myPlayer) return
-
     const channel = supabase.channel(`game:${roomId}`)
-    channel.send({
-      type: 'broadcast',
-      event: 'game',
-      payload: { type: 'move', move: lastMove },
-    })
+    channel.send({ type: 'broadcast', event: 'game', payload: { type: 'move', move: lastMove } })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prevMoveCount])
-
-  const handleReaction = useCallback(
-    (emoji: string) => {
-      const channel = supabase.channel(`game:${roomId}`)
-      channel.send({
-        type: 'broadcast',
-        event: 'game',
-        payload: { type: 'reaction', emoji },
-      })
-    },
-    [supabase, roomId]
-  )
+  }, [moveCount])
 
   async function copyRoomLink() {
-    const url = `${window.location.origin}/play/${roomId}`
-    await navigator.clipboard.writeText(url)
+    await navigator.clipboard.writeText(`${window.location.origin}/play/${roomId}`)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-    toast({ title: 'Link copied!', description: 'Share it with your opponent.' })
   }
 
-  const currentRoomId = roomId === 'new'
-    ? (typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : roomId)
-    : roomId
-
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="h-screen flex flex-col bg-zinc-950">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-3 bg-[#16213e]/80 backdrop-blur-md border-b border-white/10">
-        <Link href="/" className="text-cream/60 hover:text-cream text-sm transition-colors">
-          ← Home
+      <header className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 shrink-0">
+        <Link
+          href="/"
+          className="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-200 text-xs transition-colors font-mono"
+        >
+          <ArrowLeft size={12} />
+          Home
         </Link>
-        <div className="flex items-center gap-2">
-          <span className="text-cream/40 text-sm font-mono">Room: {currentRoomId}</span>
+
+        <div className="flex items-center gap-3">
+          <span className="font-mono text-xs text-zinc-600">
+            Room: {roomId === 'new' ? '...' : roomId.slice(0, 8)}
+          </span>
           <button
             onClick={copyRoomLink}
-            className="text-[#e07b54] text-xs hover:underline"
+            className="flex items-center gap-1 text-xs font-mono text-zinc-500 hover:text-zinc-200 transition-colors"
           >
-            {copied ? '✓ Copied' : 'Copy link'}
+            {copied ? <Check size={11} className="text-blue-400" /> : <Copy size={11} />}
+            {copied ? 'Copied' : 'Copy link'}
           </button>
+          <span className={`flex items-center gap-1 font-mono text-xs ${opponentJoined ? 'text-blue-400' : 'text-zinc-600'}`}>
+            {opponentJoined ? <Wifi size={11} /> : <WifiOff size={11} />}
+            {opponentJoined ? 'Connected' : 'Waiting'}
+          </span>
         </div>
-        <span
-          className={`text-xs px-2 py-1 rounded-full ${
-            opponentJoined
-              ? 'bg-green-500/20 text-green-400'
-              : 'bg-yellow-500/20 text-yellow-400'
-          }`}
-        >
-          {opponentJoined ? '● Online' : '○ Waiting'}
-        </span>
-      </div>
 
-      {/* Waiting banner */}
+        <button
+          onClick={resetGame}
+          className="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-200 text-xs transition-colors font-mono"
+        >
+          <RefreshCcw size={12} />
+          New game
+        </button>
+      </header>
+
       {!opponentJoined && (
-        <div className="bg-[#e07b54]/10 border-b border-[#e07b54]/20 px-4 py-2 text-center text-cream/70 text-sm">
-          Waiting for opponent to join…{' '}
-          <button onClick={copyRoomLink} className="text-[#e07b54] hover:underline">
-            Share this room
-          </button>
+        <div className="border-b border-zinc-800 px-4 py-2 text-center font-mono text-xs text-zinc-600">
+          Waiting for opponent — share the room link to invite them.
         </div>
       )}
 
-      {/* Main layout */}
-      <div className="flex-1 flex flex-col lg:flex-row items-center justify-center gap-6 p-4 lg:p-8">
-        {/* Left sidebar */}
-        <div className="w-full lg:w-56 flex flex-col gap-4 order-2 lg:order-1">
-          <GameStatus gameState={gameState} gameMode="multiplayer" />
-          <div className="glass-card p-3 text-center text-sm">
-            <div className="text-cream/50 text-xs mb-1">You are</div>
-            <div className={`font-bold capitalize text-lg ${myPlayer === 'red' ? 'text-red-400' : 'text-gray-300'}`}>
-              {myPlayer ?? '—'}
-            </div>
+      {/* Split screen */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left — Board */}
+        <div className="flex-1 flex flex-col items-center justify-center bg-zinc-950 border-r border-zinc-800 gap-4 p-6">
+          <div className="flex items-center gap-4 font-mono text-[10px] text-zinc-600">
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-3 h-3 bg-zinc-900 border border-zinc-800" />
+              Fog
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-3 h-3 bg-zinc-700" />
+              Visible (dark)
+            </span>
+            <span>
+              You play: <span className="text-zinc-300">{myPlayer ?? '...'}</span>
+            </span>
           </div>
-          <EmojiReactions onReaction={handleReaction} />
-          <Button
-            variant="ghost"
-            asChild
-            className="w-full text-red-400 hover:text-red-300 hover:bg-red-500/10"
-          >
-            <Link href="/">Resign</Link>
-          </Button>
+
+          <Board clientBoard={playerView} />
+
+          <p className="font-mono text-[10px] text-zinc-600">
+            Red {gameState.pieces.filter(p => p.player === 'red').length} pieces
+            &nbsp;·&nbsp;
+            Black {gameState.pieces.filter(p => p.player === 'black').length} pieces
+            {gameState.winner && (
+              <span className="text-blue-400 ml-2">
+                · {gameState.winner === 'red' ? 'Red' : 'Black'} wins
+              </span>
+            )}
+          </p>
         </div>
 
-        {/* Board */}
-        <div className="flex-1 flex items-center justify-center order-1 lg:order-2">
-          <div className="w-full max-w-[min(80vh,480px)]">
-            <Board
-              gameState={gameState}
-              onCellClick={handleCellClick}
-              flipped={myPlayer === 'black'}
-            />
-          </div>
-        </div>
-
-        {/* Right info */}
-        <div className="w-full lg:w-56 order-3 hidden lg:flex flex-col gap-4">
-          <div className="glass-card p-4">
-            <div className="text-cream/60 font-semibold mb-2 text-sm">Multiplayer</div>
-            <ul className="space-y-1 text-xs text-cream/40 leading-relaxed">
-              <li>• Real-time via Supabase</li>
-              <li>• Share room link to invite</li>
-              <li>• You play {myPlayer ?? '...'}</li>
-            </ul>
-          </div>
-          {/* Floating reactions from opponent */}
-          <div className="relative h-16 flex items-end justify-center overflow-hidden">
-            <AnimatePresence>
-              {floatingReactions.map((emoji, i) => (
-                <span key={i} className="text-3xl animate-float-up absolute bottom-0">
-                  {emoji}
-                </span>
-              ))}
-            </AnimatePresence>
-          </div>
+        {/* Right — Terminal */}
+        <div className="w-[380px] shrink-0 flex flex-col">
+          <Terminal />
         </div>
       </div>
-
-      {/* Post-match overlay */}
-      <AnimatePresence>
-        {gameState.winner && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <PostMatchReview
-              gameState={gameState}
-              gameMode="multiplayer"
-              onPlayAgain={resetGame}
-            />
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   )
 }
