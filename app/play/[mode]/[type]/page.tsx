@@ -204,20 +204,6 @@ function PlayContent() {
 
         <div className="flex-1 flex overflow-hidden">
           <div className="flex-1 flex flex-col items-center justify-center bg-zinc-950 border-r border-zinc-800 gap-4 p-6">
-            <div className="flex items-center gap-4 font-mono text-[10px] text-zinc-600">
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block w-3 h-3 bg-zinc-900 border border-zinc-800" />
-                Fog
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block w-3 h-3 bg-zinc-700" />
-                Visible (dark)
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block w-3 h-3 bg-zinc-200" />
-                Visible (light)
-              </span>
-            </div>
             <Board clientBoard={playerView} />
             <PieceCount gameState={gameState} dark />
           </div>

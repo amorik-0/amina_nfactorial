@@ -27,7 +27,8 @@ function buildPlayerView(
   type: GameType,
   nextPlayer: Player,
 ): ClientBoard {
-  if (mode === 'classic') return toFullClientBoard(board)
+  // Only 'fog' mode applies fog of war — classic and code show the full board
+  if (mode !== 'fog') return toFullClientBoard(board)
   const perspective: Player = type === 'ai' ? 'red' : nextPlayer
   return applyFog(board, perspective)
 }
@@ -136,8 +137,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const terminalLog = mode === 'code'
       ? [
-          makeEntry('system', 'CodeCheckers: Fog of War'),
-          makeEntry('system', 'Type board.move("A3", "B4") to move a piece.'),
+          makeEntry('system', 'CodeCheckers — terminal control mode.'),
+          makeEntry('system', 'Move:    board.move("A3", "B4")'),
+          makeEntry('system', 'Capture: board.move("C3", "E5")  — jump over enemy piece'),
           makeEntry('system', type === 'ai'
             ? 'You play as Red. Bot plays as Black.'
             : "You play as Red. Pass device for Black's turn."),
