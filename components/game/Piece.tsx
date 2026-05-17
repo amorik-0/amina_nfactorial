@@ -153,7 +153,7 @@ interface PieceProps {
 export function Piece({ piece, skin, gameMode, activeSkinId, isSelected = false }: PieceProps) {
   const isRed  = piece.player === 'red'
   const isKing = piece.type === 'king'
-  const isClassicWarm = gameMode === 'classic' && activeSkinId === 'default'
+  const isClassicWarm = activeSkinId === 'classic' || (gameMode === 'classic' && activeSkinId === 'default')
 
   if (isClassicWarm) {
     return <ClassicWarmPiece isRed={isRed} isKing={isKing} isSelected={isSelected} />

@@ -20,19 +20,12 @@ export function ShopClient({ skins, ownedSkins, activeSkin: initialActive, isPro
   const [activeSkin, setLocalActive] = useState(initialActive)
 
   async function handleBuy(skinId: string) {
+    // During testing all skins are free — just activate directly
     if (!isLoggedIn) {
       router.push('/login')
       return
     }
-    const res = await fetch('/api/stripe/create-checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ productKey: `skin_${skinId}` }),
-    })
-    const data = await res.json()
-    if (data.url) {
-      window.location.href = data.url
-    }
+    await handleActivate(skinId)
   }
 
   async function handleActivate(skinId: string) {

@@ -17,20 +17,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid skin' }, { status: 400 })
     }
 
-    // Free skins can always be equipped; paid skins require ownership
-    const skin = SKINS[skinId]
-    if (skin.priceCents > 0) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('unlocked_skins, is_pro')
-        .eq('id', user.id)
-        .single()
-
-      const owns = profile?.unlocked_skins?.includes(skinId) || profile?.is_pro
-      if (!owns) {
-        return NextResponse.json({ error: 'Skin not owned' }, { status: 403 })
-      }
-    }
+    // All skins are free to try — no ownership check needed during testing
 
     const { error } = await supabase
       .from('profiles')

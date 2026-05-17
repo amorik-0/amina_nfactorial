@@ -126,6 +126,44 @@ export const WARM_CLASSIC_SKIN: Skin = skin(
 // ── All skins ──────────────────────────────────────────────────────────────────
 export const SKINS: Record<string, Skin> = {
 
+  // ── Classic / Pink-Green (the warm default board) ──────────────────────────
+  classic: skin(
+    {
+      id: 'classic',
+      name: 'Classic',
+      description: 'The original pink & green pieces on a dark/cream board.',
+      priceCents: 0,
+      stripeProductId: '',
+      darkCell:    'bg-[#424040]',
+      lightCell:   'bg-[#FFFDE1]',
+      fogCell:     'bg-stone-900',
+      boardBorder: 'border-[#C8C0A0] shadow-[0_6px_32px_rgba(0,0,0,0.12)]',
+      redPiece:    'bg-[#E89BC8] border-[#C87AA8]',
+      blackPiece:  'bg-[#88BD70] border-[#68A050]',
+      redCrown:    'text-[#D4A847]',
+      blackCrown:  'text-[#D4A847]',
+      labelText:   'text-[#5A5030]',
+      validMoveDot: 'bg-green-300/50 ring-1 ring-green-400/30',
+      selectionRing: 'ring-green-500/80',
+    },
+    {
+      red: {
+        outerColor: '#E89BC8',
+        innerColor: 'radial-gradient(circle at 35% 28%, #FFF0F4 0%, #FFE0E5 8%, #FFC2E8 22%)',
+        emoji: '♟',
+        ringColor: '#C87AA8',
+        kingEmoji: '♛',
+      },
+      black: {
+        outerColor: '#88BD70',
+        innerColor: 'radial-gradient(circle at 35% 28%, #E8F5D8 0%, #D5ECBA 8%, #A9DB94 22%)',
+        emoji: '♟',
+        ringColor: '#68A050',
+        kingEmoji: '♛',
+      },
+    },
+  ),
+
   // ── Default / Fast Food ────────────────────────────────────────────────────
   default: skin(
     {
@@ -306,7 +344,7 @@ SKINS.neon.boardStyles.frame.style = {
   boxShadow: '0 4px 24px rgba(0,0,0,0.2)',
 }
 
-export const SKIN_ORDER = ['default', 'wood', 'midnight', 'neon'] as const
+export const SKIN_ORDER = ['classic', 'default', 'wood', 'midnight', 'neon'] as const
 export type SkinId = keyof typeof SKINS
 
 export function getSkin(id: string): Skin {
@@ -314,6 +352,8 @@ export function getSkin(id: string): Skin {
 }
 
 export function getEffectiveSkin(activeSkinId: string, gameMode: string): Skin {
+  // Both 'classic' and 'default' on classic mode use the warm classic visual
+  if (activeSkinId === 'classic') return WARM_CLASSIC_SKIN
   if (gameMode === 'classic' && activeSkinId === 'default') return WARM_CLASSIC_SKIN
   return getSkin(activeSkinId)
 }

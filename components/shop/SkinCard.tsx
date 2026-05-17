@@ -98,7 +98,7 @@ export function SkinCard({ skin, owned, active, isPro, onBuy, onActivate }: Skin
   async function handleAction() {
     setLoading(true)
     try {
-      owned || isFree ? await onActivate(skin.id) : await onBuy(skin.id)
+      await onActivate(skin.id)
     } finally {
       setLoading(false)
     }
@@ -148,19 +148,15 @@ export function SkinCard({ skin, owned, active, isPro, onBuy, onActivate }: Skin
             'text-xs font-bold transition-all duration-150',
             active
               ? 'bg-sage-300 text-sage-600 cursor-default'
-              : owned || isFree
-              ? 'bg-sage-400 text-brown-900 hover:bg-sage-500 shadow-button'
-              : 'bg-brown-900 text-cream-100 hover:bg-brown-700 shadow-button'
+              : 'bg-sage-400 text-brown-900 hover:bg-sage-500 shadow-button'
           )}
         >
           {loading ? (
             <Loader size={11} className="animate-spin" />
           ) : active ? (
             <><Check size={11} /> Equipped</>
-          ) : owned || isFree ? (
-            'Equip'
           ) : (
-            <><Lock size={11} /> ${(skin.priceCents / 100).toFixed(2)}</>
+            'Equip'
           )}
         </button>
       </div>
