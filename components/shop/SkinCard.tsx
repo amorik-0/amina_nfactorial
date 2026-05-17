@@ -3,40 +3,79 @@
 import { useState } from 'react'
 import { Check, Lock, Loader, Crown, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { SkinConfig } from '@/lib/skins'
+import type { SkinConfig, PieceVisual } from '@/lib/skins'
 
-// ── Mini board preview — 4 × 4 grid ──────────────────────────────────────────
+// ── Mini piece for the shop card preview ─────────────────────────────────────
+function MiniPiece({ visual, size = 20 }: { visual: PieceVisual; size?: number }) {
+  const isDustText = visual.emoji === 'DUST'
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%',
+      background: visual.outerColor,
+      boxShadow: `0 0 0 1.5px ${visual.ringColor}, 0 2px 4px rgba(0,0,0,0.25)`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+      position: 'relative', overflow: 'hidden',
+    }}>
+      <div style={{
+        position: 'absolute', inset: 2, borderRadius: '50%',
+        background: visual.innerColor,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        {isDustText ? (
+          <span style={{ fontSize: 5, fontWeight: 900, color: 'rgba(255,255,255,0.85)', fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: '0.03em' }}>
+            DUST
+          </span>
+        ) : (
+          <span style={{ fontSize: size * 0.52, lineHeight: 1, userSelect: 'none' }}>
+            {visual.emoji}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── 4×4 board preview ─────────────────────────────────────────────────────────
 function MiniBoardPreview({ skin }: { skin: SkinConfig }) {
-  const cells = Array.from({ length: 16 }, (_, i) => {
-    const r = Math.floor(i / 4)
-    const c = i % 4
-    const isDark = (r + c) % 2 === 1
-    // place a red piece at (1,1) and black at (2,2) for preview
-    const hasRed   = r === 1 && c === 1 && isDark
-    const hasBlack = r === 2 && c === 2 && isDark
-    return { isDark, hasRed, hasBlack }
-  })
+  // Layout: pieces at (0,1) and (0,3) = black, (3,0) and (3,2) = red
+  const PIECE: Record<string, 'red' | 'black'> = {
+    '0-1': 'black', '0-3': 'black',
+    '3-0': 'red',   '3-2': 'red',
+  }
 
   return (
     <div
-      className={cn('grid grid-cols-4 w-full aspect-square rounded-md overflow-hidden border', skin.boardBorder)}
+      className="w-full aspect-square rounded-lg overflow-hidden"
+      style={{
+        ...skin.boardStyles.frame.style,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
+      }}
     >
-      {cells.map(({ isDark, hasRed, hasBlack }, i) => (
-        <div
-          key={i}
-          className={cn(
-            'flex items-center justify-center',
-            isDark ? skin.darkCell : skin.lightCell
-          )}
-        >
-          {hasRed && (
-            <div className={cn('w-3/4 h-3/4 rounded-full border', skin.redPiece)} />
-          )}
-          {hasBlack && (
-            <div className={cn('w-3/4 h-3/4 rounded-full border', skin.blackPiece)} />
-          )}
-        </div>
-      ))}
+      <div className="grid grid-cols-4 w-full h-full">
+        {Array.from({ length: 16 }, (_, i) => {
+          const r = Math.floor(i / 4)
+          const c = i % 4
+          const isDark = (r + c) % 2 === 1
+          const pieceTeam = PIECE[`${r}-${c}`]
+          const cellStyle = isDark ? skin.boardStyles.darkCell : skin.boardStyles.lightCell
+          const isRedPiece = pieceTeam === 'red'
+
+          return (
+            <div
+              key={i}
+              className={cn('flex items-center justify-center', cellStyle.className)}
+              style={{ ...cellStyle.style }}
+            >
+              {pieceTeam && (
+                <MiniPiece
+                  visual={isRedPiece ? skin.pieces.red : skin.pieces.black}
+                  size={18}
+                />
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -73,32 +112,34 @@ export function SkinCard({ skin, owned, active, isPro, onBuy, onActivate }: Skin
         active && 'ring-2 ring-sage-500'
       )}
     >
-      {/* Board preview */}
-      <div className="p-4 pb-3">
+      {/* Board + pieces preview */}
+      <div className="p-3 pb-2">
         <MiniBoardPreview skin={skin} />
       </div>
 
+      {/* Piece pair showcase */}
+      <div className="px-3 pb-1 flex items-center gap-1.5">
+        <MiniPiece visual={skin.pieces.black} size={24} />
+        <span className="text-[9px] font-bold text-brown-500 mx-0.5">vs</span>
+        <MiniPiece visual={skin.pieces.red} size={24} />
+      </div>
+
       {/* Info */}
-      <div className="px-4 pb-3 flex-1 flex flex-col gap-3">
+      <div className="px-3 pb-3 flex-1 flex flex-col gap-2 mt-1">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <p className="font-extrabold text-sm text-brown-900 leading-snug">
-              {skin.name}
-            </p>
-            <p className="text-xs font-medium text-brown-700 mt-0.5 leading-relaxed">
+            <p className="font-extrabold text-sm text-brown-900 leading-snug">{skin.name}</p>
+            <p className="text-[11px] font-medium text-brown-700 mt-0.5 leading-relaxed">
               {skin.description}
             </p>
           </div>
-          {/* Active badge */}
           {active && (
             <span className="flex items-center gap-1 text-[10px] font-bold text-sage-600 bg-sage-300 px-2 py-0.5 rounded-full shrink-0">
-              <Check size={9} strokeWidth={2.5} />
-              On
+              <Check size={9} strokeWidth={2.5} /> On
             </span>
           )}
         </div>
 
-        {/* Action button */}
         <button
           onClick={handleAction}
           disabled={loading || active}
@@ -128,7 +169,6 @@ export function SkinCard({ skin, owned, active, isPro, onBuy, onActivate }: Skin
 }
 
 // ── Pro subscription card ─────────────────────────────────────────────────────
-
 interface ProCardProps {
   isPro: boolean
   onBuy: () => Promise<void>
