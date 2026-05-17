@@ -48,7 +48,13 @@ export default function HomePage() {
               Start
             </Link>
           </div>
-          <div className="w-[200px] h-[200px] bg-sage-300 rounded-2xl flex-shrink-0" />
+          <div className="w-[200px] h-[200px] flex-shrink-0">
+            <img
+              src="/new-format-preview.png"
+              alt="New game formats preview"
+              className="w-full h-full object-cover rounded-2xl"
+            />
+          </div>
         </section>
 
         {/* Section 3: Play in your own style */}

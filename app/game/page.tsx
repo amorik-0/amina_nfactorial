@@ -156,43 +156,32 @@ function ModeCard({ mode, onSelect }: ModeCardProps) {
       )}
 
       {mode === 'learning' && (
-        <div className="absolute inset-0 flex items-center justify-center p-6">
+        <div className="absolute inset-0">
           <img
-            src="/canva/red-flag.png"
+            src="/learning.png"
             alt=""
-            className="h-28 w-28 object-contain opacity-95 transition-transform duration-200 group-hover:scale-105"
+            className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
           />
         </div>
       )}
 
       {mode === 'fog' && (
-        <div className="absolute inset-0 grid grid-cols-4 grid-rows-4 gap-1 p-8 opacity-90">
-          {Array.from({ length: 16 }).map((_, i) => (
-            <span
-              key={i}
-              className={
-                i === 5 || i === 6 || i === 9
-                  ? 'rounded-md bg-cream-100'
-                  : 'rounded-md bg-brown-900/20'
-              }
-            />
-          ))}
+        <div className="absolute inset-0">
+          <img
+            src="/fog-mode.png"
+            alt=""
+            className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+          />
         </div>
       )}
 
       {mode === 'code' && (
-        <div className="absolute inset-0 flex items-center justify-center p-7">
-          <div className="w-full rounded-xl bg-zinc-950 p-4 shadow-card-sm">
-            <div className="mb-3 flex gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-red-400" />
-              <span className="h-2 w-2 rounded-full bg-amber-400" />
-              <span className="h-2 w-2 rounded-full bg-sage-400" />
-            </div>
-            <div className="space-y-2 font-mono text-[10px]">
-              <p className="text-cyan-300">board<span className="text-pink-400">.move</span><span className="text-zinc-500">(</span><span className="text-white">"A3"</span><span className="text-zinc-500">, </span><span className="text-white">"B4"</span><span className="text-zinc-500">)</span></p>
-              <p className="text-zinc-600">Red to move</p>
-            </div>
-          </div>
+        <div className="absolute inset-0">
+          <img
+            src="/coder-mode.png"
+            alt=""
+            className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+          />
         </div>
       )}
 
