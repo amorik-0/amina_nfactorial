@@ -90,6 +90,7 @@ export function Board({ clientBoard, flipped = false, disabled = false }: BoardP
             padding: 13,
             borderRadius: 24,
             boxShadow: '0 6px 24px rgba(0,0,0,0.18)',
+            overflow: 'hidden',
             ...frame.style,
           }}
         >
@@ -141,7 +142,7 @@ export function Board({ clientBoard, flipped = false, disabled = false }: BoardP
 
   return (
     <LayoutGroup id={layoutGroupId}>
-      <div className={cn('inline-flex flex-col border', frame.className)} style={frame.style}>
+      <div className={cn('inline-flex flex-col border overflow-hidden', frame.className)} style={frame.style}>
         <div className="flex">
           <div className="w-6" />
           {visibleCols.map(c => (

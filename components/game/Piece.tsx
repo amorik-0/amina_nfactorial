@@ -21,13 +21,14 @@ const CLASSIC = {
   },
 }
 
-function ClassicPiece({ isRed, isKing, isSelected }: { isRed: boolean; isKing: boolean; isSelected: boolean }) {
+function ClassicPiece({ isRed, isKing, isSelected, pieceId }: { isRed: boolean; isKing: boolean; isSelected: boolean; pieceId: string }) {
   const c = isRed ? CLASSIC.red : CLASSIC.black
   const SIZE = 32
 
   return (
     <motion.div
       layout
+      layoutId={pieceId}
       initial={false}
       animate={{ scale: isSelected ? 1.13 : 1, y: isSelected ? -2 : 0 }}
       transition={SPRING}
@@ -167,7 +168,7 @@ export function Piece({ piece, skin, gameMode, activeSkinId, isSelected = false 
   const useClassic = activeSkinId === 'classic' || (gameMode === 'classic' && activeSkinId === 'default')
 
   if (useClassic) {
-    return <ClassicPiece isRed={isRed} isKing={isKing} isSelected={isSelected} />
+    return <ClassicPiece isRed={isRed} isKing={isKing} isSelected={isSelected} pieceId={piece.id} />
   }
 
   return (

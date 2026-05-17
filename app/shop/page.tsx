@@ -4,13 +4,13 @@ import { ShopClient } from '@/components/shop/ShopClient'
 
 export const metadata = { title: 'Shop — Checkers' }
 
-// ── Illustrated skin preview cards (from nfactorialamina.my.canva.site) ──────
-// 4 visually-distinct themes — each uses a different bg color & board palette.
+// ── Illustrated skin preview cards ────────────────────────────────────────────
 const SKIN_VISUAL: Record<string, { image: string; label: string }> = {
-  default:  { image: '/canva/skin-iso-classic.png', label: 'Fast Food'  },  // sage-green + burger pieces
-  wood:     { image: '/canva/skin-iso-brick.png',   label: 'Street art' },  // brick wall = graffiti
-  midnight: { image: '/canva/skin-iso-purple.png',  label: 'Pets'       },  // paw-print pieces
-  neon:     { image: '/canva/skin-iso-pink.png',    label: 'Just the way you are' },  // pink/red — vibrant
+  classic:  { image: '/canva/skin-iso-classic.png', label: 'Classic'    },
+  default:  { image: '/canva/skin-iso-sage.png',    label: 'Fast Food'  },
+  wood:     { image: '/canva/skin-iso-brick.png',   label: 'Street Art' },
+  midnight: { image: '/canva/skin-iso-purple.png',  label: 'Pets'       },
+  neon:     { image: '/canva/skin-iso-pink.png',    label: 'Frenchie'   },
 }
 
 export default async function ShopPage() {
@@ -33,7 +33,7 @@ export default async function ShopPage() {
         .single()
 
       if (profile) {
-        ownedSkins  = ['default', ...(profile.unlocked_skins ?? [])]
+        ownedSkins  = ['default', 'classic', ...(profile.unlocked_skins ?? [])]
         activeSkin  = profile.active_skin  ?? 'default'
         isPro       = profile.is_pro       ?? false
       }
