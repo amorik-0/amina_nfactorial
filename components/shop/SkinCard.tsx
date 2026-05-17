@@ -5,28 +5,43 @@ import { Check, Lock, Loader, Crown, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { SkinConfig, PieceVisual } from '@/lib/skins'
 
-// ── Mini piece for the shop card preview ─────────────────────────────────────
-function MiniPiece({ visual, size = 20 }: { visual: PieceVisual; size?: number }) {
-  const isDustText = visual.emoji === 'DUST'
+// ── Mini piece (same proportions as the real Piece component) ─────────────────
+function MiniPiece({ visual, size = 22 }: { visual: PieceVisual; size?: number }) {
+  const isDust = visual.emoji === 'DUST'
+  const inset  = Math.max(2, Math.round(size * 0.094)) // ~3px at 32px
+
   return (
     <div style={{
       width: size, height: size, borderRadius: '50%',
-      background: visual.outerColor,
-      boxShadow: `0 0 0 1.5px ${visual.ringColor}, 0 2px 4px rgba(0,0,0,0.25)`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-      position: 'relative', overflow: 'hidden',
+      background: visual.ringColor,
+      boxShadow: `0 3px 7px rgba(0,0,0,0.30), 0 1px 2px rgba(0,0,0,0.18)`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      position: 'relative', flexShrink: 0,
     }}>
+      {/* face */}
       <div style={{
-        position: 'absolute', inset: 2, borderRadius: '50%',
+        position: 'absolute', inset, borderRadius: '50%',
         background: visual.innerColor,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
+        overflow: 'hidden',
       }}>
-        {isDustText ? (
-          <span style={{ fontSize: 5, fontWeight: 900, color: 'rgba(255,255,255,0.85)', fontFamily: 'Impact, Arial Black, sans-serif', letterSpacing: '0.03em' }}>
-            DUST
-          </span>
+        {/* shine */}
+        <div style={{
+          position: 'absolute', inset: 0, borderRadius: '50%',
+          background: 'radial-gradient(ellipse at 33% 22%, rgba(255,255,255,0.5) 0%, transparent 58%)',
+        }} />
+        {isDust ? (
+          <span style={{
+            fontSize: Math.max(4, size * 0.21),
+            fontWeight: 900,
+            fontFamily: 'Impact, "Arial Narrow", Arial, sans-serif',
+            color: 'rgba(255,255,255,0.92)',
+            letterSpacing: '0.05em',
+            textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+            lineHeight: 1, zIndex: 1,
+          }}>DUST</span>
         ) : (
-          <span style={{ fontSize: size * 0.52, lineHeight: 1, userSelect: 'none' }}>
+          <span style={{ fontSize: size * 0.48, lineHeight: 1, userSelect: 'none', zIndex: 1 }}>
             {visual.emoji}
           </span>
         )}

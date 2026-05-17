@@ -1,138 +1,149 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { cn } from '@/lib/utils'
 import type { Skin, PieceVisual } from '@/lib/skins'
 import type { CSSProperties } from 'react'
 import type { GameMode, Piece as PieceType } from '@/lib/game/types'
 
-// ── Classic warm piece (default skin in classic mode) ─────────────────────────
-const RING_COLOR = { green: '#88BD70', pink: '#E89BC8' }
-const INNER_GRADIENT = {
-  green: 'radial-gradient(circle at 35% 28%, #E8F5D8 0%, #D5ECBA 8%, #A9DB94 22%)',
-  pink:  'radial-gradient(circle at 35% 28%, #FFF0F4 0%, #FFE0E5 8%, #FFC2E8 22%)',
+const SPRING = { type: 'spring', stiffness: 300, damping: 26 } as const
+
+// ── Classic warm (pink / green gradient coin) ─────────────────────────────────
+const CLASSIC = {
+  red: {
+    ring:  '#D070A8',
+    face:  'radial-gradient(circle at 38% 32%, #FFF0F8 0%, #F8C0DC 28%, #E080B8 70%)',
+    shine: 'radial-gradient(ellipse at 35% 20%, rgba(255,255,255,0.65) 0%, transparent 60%)',
+  },
+  black: {
+    ring:  '#5A9A40',
+    face:  'radial-gradient(circle at 38% 32%, #EEFADE 0%, #B8E898 28%, #6AAA50 70%)',
+    shine: 'radial-gradient(ellipse at 35% 20%, rgba(255,255,255,0.65) 0%, transparent 60%)',
+  },
 }
-const CROWN_STYLE: CSSProperties = {
-  color: '#C8A020',
-  filter: 'drop-shadow(0 1px 2px rgba(180,140,0,0.60))',
-  fontSize: 10,
-}
-function ClassicWarmPiece({ isRed, isKing, isSelected }: { isRed: boolean; isKing: boolean; isSelected: boolean }) {
-  const palette = isRed ? 'pink' : 'green'
+
+function ClassicPiece({ isRed, isKing, isSelected }: { isRed: boolean; isKing: boolean; isSelected: boolean }) {
+  const c = isRed ? CLASSIC.red : CLASSIC.black
+  const SIZE = 32
+
   return (
     <motion.div
       layout
       initial={false}
-      animate={{ scale: isSelected ? 1.12 : 1 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+      animate={{ scale: isSelected ? 1.13 : 1, y: isSelected ? -2 : 0 }}
+      transition={SPRING}
       style={{
-        width: 32, height: 32, borderRadius: '50%',
-        background: RING_COLOR[palette],
-        boxShadow: isSelected ? '0 6px 18px rgba(0,0,0,0.25)' : '0 3px 10px rgba(0,0,0,0.18)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        width: SIZE, height: SIZE, borderRadius: '50%',
+        background: c.ring,
+        boxShadow: isSelected
+          ? `0 0 0 2px rgba(255,255,255,0.5), 0 6px 16px rgba(0,0,0,0.35), 0 2px 4px rgba(0,0,0,0.25)`
+          : `0 4px 10px rgba(0,0,0,0.30), 0 1px 3px rgba(0,0,0,0.20)`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        position: 'relative', flexShrink: 0,
       }}
     >
+      {/* face */}
       <div style={{
-        width: '68%', height: '68%', borderRadius: '50%',
-        background: INNER_GRADIENT[palette],
-        boxShadow: 'inset 0 2px 3px rgba(255,255,255,0.55)',
+        position: 'absolute', inset: 3, borderRadius: '50%',
+        background: c.face,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
+        overflow: 'hidden',
       }}>
-        {isKing && <span style={CROWN_STYLE}>♛</span>}
+        {/* shine overlay */}
+        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: c.shine }} />
+        {isKing && (
+          <span style={{ fontSize: 11, lineHeight: 1, zIndex: 1, filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.4))' }}>
+            ♛
+          </span>
+        )}
       </div>
     </motion.div>
   )
 }
 
-// ── Emoji / icon piece (all non-classic skins) ────────────────────────────────
+// ── Emoji / token piece (all other skins) ─────────────────────────────────────
 function EmojiPiece({
-  visual,
-  isKing,
-  isSelected,
-  pieceId,
+  visual, isKing, isSelected, pieceId,
 }: {
   visual: PieceVisual
   isKing: boolean
   isSelected: boolean
   pieceId: string
 }) {
-  const emoji = isKing ? (visual.kingEmoji ?? visual.emoji) : visual.emoji
-  const isDustText = emoji === 'DUST'
+  const SIZE = 32
+  const isDust = visual.emoji === 'DUST'
+  const emoji  = isKing && visual.kingEmoji ? visual.kingEmoji : visual.emoji
 
   return (
     <motion.div
       layout
       layoutId={pieceId}
       initial={false}
-      animate={{ scale: isSelected ? 1.12 : 1 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+      animate={{ scale: isSelected ? 1.13 : 1, y: isSelected ? -2 : 0 }}
+      transition={SPRING}
       style={{
-        width: 34,
-        height: 34,
-        borderRadius: '50%',
-        background: visual.outerColor,
+        width: SIZE, height: SIZE, borderRadius: '50%',
+        background: visual.ringColor,
         boxShadow: isSelected
-          ? `0 0 0 2.5px ${visual.ringColor}, 0 6px 18px rgba(0,0,0,0.30)`
-          : `0 0 0 2px ${visual.ringColor}, 0 3px 8px rgba(0,0,0,0.22)`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-        position: 'relative',
-        overflow: 'hidden',
+          ? `0 0 0 2px rgba(255,255,255,0.45), 0 6px 16px rgba(0,0,0,0.38), 0 2px 4px rgba(0,0,0,0.22)`
+          : `0 4px 10px rgba(0,0,0,0.32), 0 1px 3px rgba(0,0,0,0.18)`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        position: 'relative', flexShrink: 0,
       }}
     >
-      {/* inner highlight circle */}
+      {/* face — main coloured surface */}
       <div style={{
         position: 'absolute',
         inset: 3,
         borderRadius: '50%',
         background: visual.innerColor,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        overflow: 'hidden',
       }}>
-        {isDustText ? (
+        {/* top-left shine */}
+        <div style={{
+          position: 'absolute', inset: 0, borderRadius: '50%',
+          background: 'radial-gradient(ellipse at 33% 22%, rgba(255,255,255,0.55) 0%, transparent 58%)',
+          pointerEvents: 'none',
+        }} />
+
+        {/* content */}
+        {isDust ? (
           <span style={{
-            fontSize: 7,
+            fontSize: 6.5,
             fontWeight: 900,
-            color: 'rgba(255,255,255,0.85)',
-            letterSpacing: '0.04em',
-            fontFamily: 'Impact, Arial Black, sans-serif',
-            textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+            fontFamily: 'Impact, "Arial Narrow", Arial, sans-serif',
+            color: 'rgba(255,255,255,0.92)',
+            letterSpacing: '0.06em',
+            textShadow: '0 1px 3px rgba(0,0,0,0.7)',
             lineHeight: 1,
+            zIndex: 1,
+            transform: isKing ? 'none' : undefined,
           }}>
             {isKing ? '★DUST' : 'DUST'}
           </span>
         ) : (
           <span style={{
-            fontSize: isDustText ? 7 : 16,
+            fontSize: 15,
             lineHeight: 1,
             userSelect: 'none',
-            filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.25))',
+            zIndex: 1,
+            filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.30))',
           }}>
             {emoji}
           </span>
         )}
       </div>
 
-      {/* king indicator: gold star badge */}
+      {/* king badge — small gold star in bottom-right */}
       {isKing && (
         <div style={{
-          position: 'absolute',
-          bottom: 0,
-          right: 0,
-          width: 12,
-          height: 12,
-          borderRadius: '50%',
-          background: '#F0C020',
-          border: '1.5px solid #A08000',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 7,
-          lineHeight: 1,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+          position: 'absolute', bottom: -1, right: -1,
+          width: 11, height: 11, borderRadius: '50%',
+          background: 'linear-gradient(135deg, #FFE060, #C89000)',
+          border: '1.5px solid #A07000',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 6.5, lineHeight: 1, color: '#5A3A00',
         }}>
           ★
         </div>
@@ -153,17 +164,15 @@ interface PieceProps {
 export function Piece({ piece, skin, gameMode, activeSkinId, isSelected = false }: PieceProps) {
   const isRed  = piece.player === 'red'
   const isKing = piece.type === 'king'
-  const isClassicWarm = activeSkinId === 'classic' || (gameMode === 'classic' && activeSkinId === 'default')
+  const useClassic = activeSkinId === 'classic' || (gameMode === 'classic' && activeSkinId === 'default')
 
-  if (isClassicWarm) {
-    return <ClassicWarmPiece isRed={isRed} isKing={isKing} isSelected={isSelected} />
+  if (useClassic) {
+    return <ClassicPiece isRed={isRed} isKing={isKing} isSelected={isSelected} />
   }
-
-  const visual = isRed ? skin.pieces.red : skin.pieces.black
 
   return (
     <EmojiPiece
-      visual={visual}
+      visual={isRed ? skin.pieces.red : skin.pieces.black}
       isKing={isKing}
       isSelected={isSelected}
       pieceId={piece.id}
