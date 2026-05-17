@@ -18,9 +18,9 @@ const ROWS = [8, 7, 6, 5, 4, 3, 2, 1]
 const FRAME = '#424040'
 
 export function Board({ clientBoard, flipped = false, disabled = false }: BoardProps) {
-  const activeSkin = useGameStore(s => s.activeSkin)
-  const gameMode   = useGameStore(s => s.gameMode)
-  const skin       = getEffectiveSkin(activeSkin, gameMode)
+  const activeSkinId = useGameStore(s => s.activeSkinId)
+  const gameMode     = useGameStore(s => s.gameMode)
+  const skin         = getEffectiveSkin(activeSkinId, gameMode)
 
   const isClassic = gameMode === 'classic'
 

@@ -55,8 +55,8 @@ function promoteIfNeeded(piece: Piece, row: number, col: number): Piece {
   }
 }
 
-// Get all capture moves for a specific piece (including chains)
-function getCapturesForPiece(
+// ── Man captures (one square jump) ───────────────────────────────────────────
+function getManCaptures(
   board: (Piece | null)[][],
   row: number,
   col: number,
@@ -66,13 +66,8 @@ function getCapturesForPiece(
   if (!piece) return []
 
   const captures: Move[] = []
-  // Directions based on piece type
   const directions: [number, number][] =
-    piece.type === 'king'
-      ? [[-1, -1], [-1, 1], [1, -1], [1, 1]]
-      : piece.player === 'red'
-      ? [[-1, -1], [-1, 1]]
-      : [[1, -1], [1, 1]]
+    piece.player === 'red' ? [[-1, -1], [-1, 1]] : [[1, -1], [1, 1]]
 
   for (const [dr, dc] of directions) {
     const midRow = row + dr
@@ -85,44 +80,36 @@ function getCapturesForPiece(
     const midPiece = board[midRow][midCol]
     const landCell = board[landRow][landCol]
 
-    if (
-      midPiece &&
-      midPiece.player !== piece.player &&
-      landCell === null
-    ) {
-      const captureKey = `${midRow},${midCol}`
-      if (visitedCaptures.has(captureKey)) continue
+    if (!midPiece || midPiece.player === piece.player || landCell !== null) continue
 
-      // Build a temporary board to explore chain captures
-      const tempBoard = board.map(r => [...r])
-      const movedPiece = promoteIfNeeded(piece, landRow, landCol)
-      tempBoard[landRow][landCol] = movedPiece
-      tempBoard[row][col] = null
-      tempBoard[midRow][midCol] = null
+    const captureKey = `${midRow},${midCol}`
+    if (visitedCaptures.has(captureKey)) continue
 
-      const newVisited = new Set(visitedCaptures)
-      newVisited.add(captureKey)
+    const tempBoard = board.map(r => [...r])
+    const movedPiece = promoteIfNeeded(piece, landRow, landCol)
+    tempBoard[landRow][landCol] = movedPiece
+    tempBoard[row][col] = null
+    tempBoard[midRow][midCol] = null
 
-      // Look for further captures from landing square
-      const chainMoves = getCapturesForPiece(tempBoard, landRow, landCol, newVisited)
+    const newVisited = new Set(visitedCaptures)
+    newVisited.add(captureKey)
 
-      if (chainMoves.length === 0) {
-        // No further captures — this is a terminal capture move
+    const chainMoves = getManCaptures(tempBoard, landRow, landCol, newVisited)
+
+    if (chainMoves.length === 0) {
+      captures.push({
+        from: { row, col },
+        to: { row: landRow, col: landCol },
+        captures: [{ row: midRow, col: midCol }],
+      })
+    } else {
+      for (const chain of chainMoves) {
         captures.push({
           from: { row, col },
-          to: { row: landRow, col: landCol },
-          captures: [{ row: midRow, col: midCol }],
+          to: chain.to,
+          captures: [{ row: midRow, col: midCol }, ...chain.captures],
+          isChain: true,
         })
-      } else {
-        // Prepend this capture to each chain
-        for (const chain of chainMoves) {
-          captures.push({
-            from: { row, col },
-            to: chain.to,
-            captures: [{ row: midRow, col: midCol }, ...chain.captures],
-            isChain: true,
-          })
-        }
       }
     }
   }
@@ -130,7 +117,99 @@ function getCapturesForPiece(
   return captures
 }
 
-// Get all simple (non-capture) moves for a piece
+// ── Flying king captures (Russian rules) ─────────────────────────────────────
+// A king slides any number of squares along a diagonal, can capture a piece
+// anywhere along that ray, and land on any empty square past it.
+function getKingCaptures(
+  board: (Piece | null)[][],
+  row: number,
+  col: number,
+  visitedCaptures: Set<string> = new Set()
+): Move[] {
+  const piece = board[row][col]
+  if (!piece) return []
+
+  const captures: Move[] = []
+  const directions: [number, number][] = [[-1, -1], [-1, 1], [1, -1], [1, 1]]
+
+  for (const [dr, dc] of directions) {
+    // Slide along the ray looking for the first enemy piece
+    let scanRow = row + dr
+    let scanCol = col + dc
+    let captureTarget: { row: number; col: number } | null = null
+
+    while (inBounds(scanRow, scanCol)) {
+      const scanned = board[scanRow][scanCol]
+
+      if (scanned) {
+        if (scanned.player === piece.player) break  // own piece blocks the ray
+        const key = `${scanRow},${scanCol}`
+        if (visitedCaptures.has(key)) break         // already captured this turn
+        captureTarget = { row: scanRow, col: scanCol }
+        break
+      }
+
+      scanRow += dr
+      scanCol += dc
+    }
+
+    if (!captureTarget) continue
+
+    // Collect all empty landing squares past the captured piece
+    let landRow = captureTarget.row + dr
+    let landCol = captureTarget.col + dc
+
+    while (inBounds(landRow, landCol) && board[landRow][landCol] === null) {
+      const captureKey = `${captureTarget.row},${captureTarget.col}`
+      const newVisited = new Set(visitedCaptures)
+      newVisited.add(captureKey)
+
+      const tempBoard = board.map(r => [...r])
+      tempBoard[landRow][landCol] = { ...piece, row: landRow, col: landCol }
+      tempBoard[row][col] = null
+      tempBoard[captureTarget.row][captureTarget.col] = null
+
+      const chainMoves = getKingCaptures(tempBoard, landRow, landCol, newVisited)
+
+      if (chainMoves.length === 0) {
+        captures.push({
+          from: { row, col },
+          to: { row: landRow, col: landCol },
+          captures: [captureTarget],
+        })
+      } else {
+        for (const chain of chainMoves) {
+          captures.push({
+            from: { row, col },
+            to: chain.to,
+            captures: [captureTarget, ...chain.captures],
+            isChain: true,
+          })
+        }
+      }
+
+      landRow += dr
+      landCol += dc
+    }
+  }
+
+  return captures
+}
+
+function getCapturesForPiece(
+  board: (Piece | null)[][],
+  row: number,
+  col: number,
+  visitedCaptures: Set<string> = new Set()
+): Move[] {
+  const piece = board[row][col]
+  if (!piece) return []
+  return piece.type === 'king'
+    ? getKingCaptures(board, row, col, visitedCaptures)
+    : getManCaptures(board, row, col, visitedCaptures)
+}
+
+// ── Simple (non-capture) moves ────────────────────────────────────────────────
 function getSimpleMovesForPiece(
   board: (Piece | null)[][],
   row: number,
@@ -140,22 +219,29 @@ function getSimpleMovesForPiece(
   if (!piece) return []
 
   const moves: Move[] = []
-  const directions: [number, number][] =
-    piece.type === 'king'
-      ? [[-1, -1], [-1, 1], [1, -1], [1, 1]]
-      : piece.player === 'red'
-      ? [[-1, -1], [-1, 1]]
-      : [[1, -1], [1, 1]]
 
-  for (const [dr, dc] of directions) {
-    const newRow = row + dr
-    const newCol = col + dc
-    if (inBounds(newRow, newCol) && board[newRow][newCol] === null) {
-      moves.push({
-        from: { row, col },
-        to: { row: newRow, col: newCol },
-        captures: [],
-      })
+  if (piece.type === 'king') {
+    // Flying king: slide any distance in all 4 diagonals
+    const dirs: [number, number][] = [[-1, -1], [-1, 1], [1, -1], [1, 1]]
+    for (const [dr, dc] of dirs) {
+      let r = row + dr
+      let c = col + dc
+      while (inBounds(r, c) && board[r][c] === null) {
+        moves.push({ from: { row, col }, to: { row: r, col: c }, captures: [] })
+        r += dr
+        c += dc
+      }
+    }
+  } else {
+    // Man: one square forward
+    const dirs: [number, number][] =
+      piece.player === 'red' ? [[-1, -1], [-1, 1]] : [[1, -1], [1, 1]]
+    for (const [dr, dc] of dirs) {
+      const newRow = row + dr
+      const newCol = col + dc
+      if (inBounds(newRow, newCol) && board[newRow][newCol] === null) {
+        moves.push({ from: { row, col }, to: { row: newRow, col: newCol }, captures: [] })
+      }
     }
   }
 

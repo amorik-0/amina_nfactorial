@@ -1,15 +1,11 @@
 'use client'
 
+import { motion } from 'framer-motion'
 import { Crown } from 'lucide-react'
-import { useGameStore } from '@/store/gameStore'
-import { getEffectiveSkin } from '@/lib/skins'
+import { cn } from '@/lib/utils'
+import type { Skin } from '@/lib/skins'
+import type { GameMode } from '@/lib/game/types'
 import type { Piece as PieceType } from '@/lib/game/types'
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 3-D piece styles for the Classic design (green & pink).
-// Structure: outer SOLID RING + smaller INNER CIRCLE with bright highlight.
-// Applied only when gameMode === 'classic' && activeSkin === 'default'.
-// ─────────────────────────────────────────────────────────────────────────────
 
 const RING_COLOR = {
   green: '#88BD70',
@@ -21,7 +17,6 @@ const INNER_GRADIENT = {
   pink:  'radial-gradient(circle at 35% 28%, #FFF0F4 0%, #FFE0E5 8%, #FFC2E8 22%)',
 }
 
-// Outer ring (the whole piece body)
 function makeOuter(color: string, isSelected: boolean): React.CSSProperties {
   return {
     width:  32,
@@ -31,8 +26,6 @@ function makeOuter(color: string, isSelected: boolean): React.CSSProperties {
     boxShadow: isSelected
       ? '0 6px 18px rgba(0,0,0,0.25)'
       : '0 3px 10px rgba(0,0,0,0.18)',
-    transform: isSelected ? 'scale(1.12)' : 'scale(1)',
-    transition: 'all 0.15s ease-out',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -40,7 +33,6 @@ function makeOuter(color: string, isSelected: boolean): React.CSSProperties {
   }
 }
 
-// Inner circle (smaller, centred, holds the highlight)
 function makeInner(gradient: string): React.CSSProperties {
   return {
     width:  '68%',
@@ -54,52 +46,61 @@ function makeInner(gradient: string): React.CSSProperties {
   }
 }
 
-/** Gold crown — classic mode */
 const CROWN_STYLE: React.CSSProperties = {
   color: '#C8A020',
   filter: 'drop-shadow(0 1px 2px rgba(180,140,0,0.60))',
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+const PIECE_TRANSITION = { type: 'spring', stiffness: 300, damping: 25 } as const
 
 interface PieceProps {
   piece: PieceType
+  skin: Skin
+  gameMode: GameMode
+  activeSkinId: string
   isSelected?: boolean
 }
 
-export function Piece({ piece, isSelected = false }: PieceProps) {
-  const activeSkin = useGameStore(s => s.activeSkin)
-  const gameMode   = useGameStore(s => s.gameMode)
-  const skin       = getEffectiveSkin(activeSkin, gameMode)
-
+export function Piece({ piece, skin, gameMode, activeSkinId, isSelected = false }: PieceProps) {
   const isRed         = piece.player === 'red'
   const isKing        = piece.type === 'king'
-  const isClassicWarm = gameMode === 'classic' && activeSkin === 'default'
+  const isClassicWarm = gameMode === 'classic' && activeSkinId === 'default'
 
-  // ── Classic warm: nested ring + inner circle ──────────────────────────────
   if (isClassicWarm) {
     const palette = isRed ? 'pink' : 'green'
     return (
-      <div style={makeOuter(RING_COLOR[palette], isSelected)}>
+      <motion.div
+        layout
+        layoutId={piece.id}
+        initial={false}
+        animate={{ scale: isSelected ? 1.12 : 1 }}
+        transition={PIECE_TRANSITION}
+        style={makeOuter(RING_COLOR[palette], isSelected)}
+      >
         <div style={makeInner(INNER_GRADIENT[palette])}>
           {isKing && (
             <Crown size={11} strokeWidth={2.2} style={CROWN_STYLE} />
           )}
         </div>
-      </div>
+      </motion.div>
     )
   }
 
-  // ── Other skins (fog / code / purchased): keep old single-div + border ───
+  const pieceStyle = isRed ? skin.pieceStyles.red : skin.pieceStyles.black
+
   return (
-    <div
-      className={[
+    <motion.div
+      layout
+      layoutId={piece.id}
+      initial={false}
+      animate={{ scale: isSelected ? 1.1 : 1 }}
+      transition={PIECE_TRANSITION}
+      className={cn(
         'w-8 h-8 rounded-full border-2',
         'flex items-center justify-center select-none',
-        'transition-all duration-150 ease-out',
-        isRed ? skin.redPiece : skin.blackPiece,
-      ].join(' ')}
-      style={isSelected ? { transform: 'scale(1.10)' } : undefined}
+        pieceStyle.className,
+      )}
+      style={pieceStyle.style}
     >
       {isKing && (
         <Crown
@@ -108,6 +109,6 @@ export function Piece({ piece, isSelected = false }: PieceProps) {
           className={isRed ? skin.redCrown : skin.blackCrown}
         />
       )}
-    </div>
+    </motion.div>
   )
 }
