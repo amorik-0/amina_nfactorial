@@ -81,6 +81,14 @@ function CellBase({
       )}
       style={cellStyle.style}
       onClick={() => { if (isClickable) onSelect(row, col) }}
+      onKeyDown={(event) => {
+        if (!isClickable || (event.key !== 'Enter' && event.key !== ' ')) return
+        event.preventDefault()
+        onSelect(row, col)
+      }}
+      role={canAct ? 'button' : undefined}
+      tabIndex={canAct ? 0 : undefined}
+      aria-label={canAct ? `Select ${row + 1}, ${col + 1}` : undefined}
     >
       {isSelected && (
         <div className="absolute inset-0 z-10 pointer-events-none" style={selectionRing} />
