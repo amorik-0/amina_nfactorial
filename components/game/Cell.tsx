@@ -1,6 +1,8 @@
 'use client'
 
 import { Piece } from './Piece'
+import { useGameStore } from '@/store/gameStore'
+import { getSkin } from '@/lib/skins'
 import type { ClientCell } from '@/lib/game/types'
 
 interface CellProps {
@@ -9,18 +11,57 @@ interface CellProps {
   col: number
 }
 
-export function Cell({ cell }: CellProps) {
+export function Cell({ cell, row, col }: CellProps) {
+  const activeSkin    = useGameStore(s => s.activeSkin)
+  const gameMode      = useGameStore(s => s.gameMode)
+  const selectedPiece = useGameStore(s => s.gameState.selectedPiece)
+  const validMoves    = useGameStore(s => s.gameState.validMoves)
+  const selectPiece   = useGameStore(s => s.selectPiece)
+
+  const skin = getSkin(activeSkin)
+
+  // Fog cells: never interactive
   if (cell.state === 'fog') {
-    return (
-      <div className="w-10 h-10 bg-zinc-900 border border-zinc-800 flex-shrink-0" />
-    )
+    return <div className={`w-10 h-10 flex-shrink-0 ${skin.fogCell}`} />
   }
 
-  const bg = cell.isDark ? 'bg-zinc-700' : 'bg-zinc-200'
+  const isClickable  = gameMode !== 'code'
+  const isSelected   = selectedPiece?.row === row && selectedPiece?.col === col
+  const isValidDest  = validMoves.some(m => m.to.row === row && m.to.col === col)
+  const isCaptureDest = isValidDest &&
+    validMoves.find(m => m.to.row === row && m.to.col === col)?.captures.length !== 0
+
+  const bg = cell.isDark ? skin.darkCell : skin.lightCell
+
+  // Cursor: pointer only when the cell is meaningful to click
+  const cursor = isClickable && (cell.state === 'piece' || isValidDest)
+    ? 'cursor-pointer'
+    : 'cursor-default'
 
   return (
-    <div className={`w-10 h-10 flex-shrink-0 relative flex items-center justify-center ${bg}`}>
-      {cell.state === 'piece' && <Piece piece={cell.piece} />}
+    <div
+      className={`w-10 h-10 flex-shrink-0 relative flex items-center justify-center ${bg} ${cursor}`}
+      onClick={() => { if (isClickable) selectPiece(row, col) }}
+    >
+      {/* Selection ring — shown on the piece's source cell */}
+      {isSelected && (
+        <div className="absolute inset-0 ring-2 ring-inset ring-blue-500 z-10 pointer-events-none" />
+      )}
+
+      {/* Valid destination indicator */}
+      {isValidDest && (
+        <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+          {/* Capture: orange ring around the landing cell */}
+          {isCaptureDest
+            ? <div className="absolute inset-0 ring-2 ring-inset ring-orange-400/70" />
+            : <div className="w-3.5 h-3.5 rounded-full bg-blue-500/50 ring-1 ring-blue-400/40" />
+          }
+        </div>
+      )}
+
+      {cell.state === 'piece' && (
+        <Piece piece={cell.piece} isSelected={isSelected} />
+      )}
     </div>
   )
 }

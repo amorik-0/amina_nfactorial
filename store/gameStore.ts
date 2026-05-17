@@ -1,37 +1,80 @@
 'use client'
 
 import { create } from 'zustand'
-import type { GameState, GameMode, Move, Player, ClientBoard, TerminalEntry } from '@/lib/game/types'
+import type {
+  GameState, GameMode, GameType, Move, Player, ClientBoard, TerminalEntry, Piece,
+} from '@/lib/game/types'
 import { initBoard, getValidMoves, applyMove, checkWin } from '@/lib/game/engine'
 import { getBestMove } from '@/lib/game/ai'
 import { applyFog } from '@/lib/game/fog'
 import { parseCommand, indexToNotation } from '@/lib/game/parser'
 
-interface GameStore {
-  gameState: GameState
-  gameMode: GameMode
-  roomId: string | null
-  isAIThinking: boolean
+// ─── helpers ──────────────────────────────────────────────────────────────────
 
-  // Fog-masked board for the human player's perspective
-  playerView: ClientBoard
+function toFullClientBoard(board: (Piece | null)[][]): ClientBoard {
+  return board.map((row, r) =>
+    row.map((piece, c) => {
+      const isDark = (r + c) % 2 === 1
+      if (piece) return { state: 'piece' as const, piece, isDark }
+      return { state: 'empty' as const, isDark }
+    })
+  )
+}
 
-  // Terminal
-  terminalLog: TerminalEntry[]
-  inputValue: string
+function buildPlayerView(
+  board: (Piece | null)[][],
+  mode: GameMode,
+  type: GameType,
+  nextPlayer: Player,
+): ClientBoard {
+  if (mode === 'classic') return toFullClientBoard(board)
+  const perspective: Player = type === 'ai' ? 'red' : nextPlayer
+  return applyFog(board, perspective)
+}
 
-  initGame: (mode: GameMode, roomId?: string) => void
-  submitCommand: (input: string) => void
-  triggerAIMove: () => void
-  resetGame: () => void
-  setGameState: (state: Partial<GameState>) => void
-  setInputValue: (v: string) => void
-  clearLog: () => void
+// Pure computation — no store side-effects
+function computeMoveResult(
+  gameState: GameState,
+  move: Move,
+  mode: GameMode,
+  type: GameType,
+) {
+  const { board, currentPlayer } = gameState
+  const newBoard = applyMove(board, move)
+  const isCapture = move.captures.length > 0
+
+  const chainMoves = isCapture
+    ? getValidMoves(newBoard, currentPlayer, move.to).filter(m => m.captures.length > 0)
+    : []
+  const hasChain = chainMoves.length > 0
+  const nextPlayer: Player = hasChain ? currentPlayer : (currentPlayer === 'red' ? 'black' : 'red')
+  const winner = hasChain ? null : checkWin(newBoard, currentPlayer)
+  const newPieces = newBoard.flat().filter(Boolean) as Piece[]
+
+  const newGameState: GameState = {
+    ...gameState,
+    board: newBoard,
+    currentPlayer: nextPlayer,
+    selectedPiece: hasChain ? move.to : null,
+    validMoves: hasChain ? chainMoves : [],
+    pieces: newPieces,
+    winner,
+    moveHistory: [...gameState.moveHistory, move],
+    chainCapture: hasChain ? move.to : null,
+  }
+
+  const playerView = buildPlayerView(newBoard, mode, type, nextPlayer)
+
+  return { newGameState, playerView, hasChain, winner, isCapture, nextPlayer }
+}
+
+function makeEntry(type: TerminalEntry['type'], message: string): TerminalEntry {
+  return { id: Math.random().toString(36).slice(2), type, message, timestamp: Date.now() }
 }
 
 function createInitialGameState(): GameState {
   const board = initBoard()
-  const pieces = board.flat().filter(Boolean) as NonNullable<(typeof board)[0][0]>[]
+  const pieces = board.flat().filter(Boolean) as Piece[]
   return {
     board,
     currentPlayer: 'red',
@@ -44,63 +87,152 @@ function createInitialGameState(): GameState {
   }
 }
 
-function makeEntry(
-  type: TerminalEntry['type'],
-  message: string
-): TerminalEntry {
-  return { id: Math.random().toString(36).slice(2), type, message, timestamp: Date.now() }
+// ─── store interface ───────────────────────────────────────────────────────────
+
+interface GameStore {
+  gameState: GameState
+  gameMode: GameMode
+  gameType: GameType
+  roomId: string | null
+  isAIThinking: boolean
+  playerView: ClientBoard
+  terminalLog: TerminalEntry[]
+  inputValue: string
+  activeSkin: string
+
+  initGame: (mode: GameMode, type: GameType, roomId?: string) => void
+  selectPiece: (row: number, col: number) => void
+  submitCommand: (input: string) => void
+  triggerAIMove: () => void
+  resetGame: () => void
+  setGameState: (partial: Partial<GameState>) => void
+  setInputValue: (v: string) => void
+  clearLog: () => void
+  setActiveSkin: (skinId: string) => void
 }
+
+// ─── store ─────────────────────────────────────────────────────────────────────
 
 export const useGameStore = create<GameStore>((set, get) => ({
   gameState: createInitialGameState(),
-  gameMode: 'local',
+  gameMode: 'classic',
+  gameType: 'local',
   roomId: null,
   isAIThinking: false,
-  playerView: applyFog(initBoard(), 'red'),
+  playerView: toFullClientBoard(initBoard()),
   terminalLog: [
     makeEntry('system', 'CodeCheckers: Fog of War'),
     makeEntry('system', 'Type board.move("A3", "B4") to move a piece.'),
     makeEntry('system', 'You play as Red. Bot plays as Black.'),
   ],
   inputValue: '',
+  activeSkin: 'default',
 
-  initGame: (mode, roomId) => {
+  // ── initGame ──────────────────────────────────────────────────────────────
+  initGame: (mode, type, roomId) => {
     const newState = createInitialGameState()
-    const humanPlayer: Player = 'red'
+
+    const playerView = buildPlayerView(newState.board, mode, type, 'red')
+
+    const terminalLog = mode === 'code'
+      ? [
+          makeEntry('system', 'CodeCheckers: Fog of War'),
+          makeEntry('system', 'Type board.move("A3", "B4") to move a piece.'),
+          makeEntry('system', type === 'ai'
+            ? 'You play as Red. Bot plays as Black.'
+            : "You play as Red. Pass device for Black's turn."),
+        ]
+      : []
+
     set({
       gameState: newState,
       gameMode: mode,
+      gameType: type,
       roomId: roomId ?? null,
       isAIThinking: false,
-      playerView: applyFog(newState.board, humanPlayer),
-      terminalLog: [
-        makeEntry('system', 'New game started.'),
-        makeEntry('system', `You play as Red. ${mode === 'ai' ? 'Bot plays as Black.' : 'Pass device for Black\'s turn.'}`),
-        makeEntry('system', 'Syntax: board.move("A3", "B4")'),
-      ],
+      playerView,
+      terminalLog,
       inputValue: '',
     })
   },
 
-  submitCommand: (raw: string) => {
-    const { gameState, gameMode, isAIThinking } = get()
-    const log = get().terminalLog
+  // ── selectPiece — mouse-based play (classic + fog modes) ──────────────────
+  selectPiece: (row, col) => {
+    const { gameState, gameMode, gameType, isAIThinking } = get()
 
-    const addEntry = (type: TerminalEntry['type'], msg: string) => {
-      set(s => ({ terminalLog: [...s.terminalLog, makeEntry(type, msg)] }))
+    if (gameMode === 'code') return          // terminal-only in code mode
+    if (gameState.winner) return
+    if (isAIThinking) return
+    if (gameType === 'ai' && gameState.currentPlayer !== 'red') return
+
+    const { board, currentPlayer, selectedPiece, validMoves, chainCapture } = gameState
+
+    // ── chain capture locked: only valid destinations are clickable
+    if (chainCapture) {
+      const move = validMoves.find(m => m.to.row === row && m.to.col === col)
+      if (!move) return
+
+      const { newGameState, playerView, hasChain, winner } = computeMoveResult(
+        gameState, move, gameMode, gameType
+      )
+      set({ gameState: newGameState, playerView })
+
+      if (!hasChain && !winner && gameType === 'ai' && newGameState.currentPlayer === 'black') {
+        set({ isAIThinking: true })
+        setTimeout(() => get().triggerAIMove(), 800)
+      }
+      return
     }
+
+    // ── a piece is selected: check if clicking a valid destination
+    if (selectedPiece) {
+      const move = validMoves.find(m => m.to.row === row && m.to.col === col)
+      if (move) {
+        const { newGameState, playerView, hasChain, winner } = computeMoveResult(
+          gameState, move, gameMode, gameType
+        )
+        set({ gameState: newGameState, playerView })
+
+        if (!hasChain && !winner && gameType === 'ai' && newGameState.currentPlayer === 'black') {
+          set({ isAIThinking: true })
+          setTimeout(() => get().triggerAIMove(), 800)
+        }
+        return
+      }
+    }
+
+    // ── try to select the piece at (row, col)
+    const piece = board[row]?.[col]
+    if (!piece || piece.player !== currentPlayer) {
+      set(s => ({ gameState: { ...s.gameState, selectedPiece: null, validMoves: [] } }))
+      return
+    }
+
+    const allMoves = getValidMoves(board, currentPlayer)
+    const hasMandatoryCapture = allMoves.some(m => m.captures.length > 0)
+    const pieceMoves = allMoves.filter(m =>
+      m.from.row === row && m.from.col === col &&
+      (!hasMandatoryCapture || m.captures.length > 0)
+    )
+
+    set(s => ({ gameState: { ...s.gameState, selectedPiece: { row, col }, validMoves: pieceMoves } }))
+  },
+
+  // ── submitCommand — terminal-based play (code mode only) ──────────────────
+  submitCommand: (raw) => {
+    const { gameState, gameMode, gameType, isAIThinking } = get()
+
+    const addEntry = (type: TerminalEntry['type'], msg: string) =>
+      set(s => ({ terminalLog: [...s.terminalLog, makeEntry(type, msg)] }))
 
     addEntry('input', `> ${raw}`)
 
-    if (gameState.winner) {
-      addEntry('error', 'Game over. Start a new game.')
+    if (gameMode !== 'code') {
+      addEntry('error', 'Terminal is only available in CodeCheckers mode.')
       return
     }
-
-    if (isAIThinking) {
-      addEntry('error', 'Wait for the bot to finish its move.')
-      return
-    }
+    if (gameState.winner) { addEntry('error', 'Game over. Start a new game.'); return }
+    if (isAIThinking) { addEntry('error', 'Wait for the bot to finish its move.'); return }
 
     const parsed = parseCommand(raw)
     if (!parsed.valid || !parsed.from || !parsed.to) {
@@ -110,34 +242,27 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const { board, currentPlayer, chainCapture } = gameState
 
-    // In AI mode the human always plays red
-    if (gameMode === 'ai' && currentPlayer !== 'red') {
+    if (gameType === 'ai' && currentPlayer !== 'red') {
       addEntry('error', 'Not your turn — wait for the bot.')
       return
     }
 
     const { from, to } = parsed
-    const fromNotation = indexToNotation(from.row, from.col)
-    const toNotation = indexToNotation(to.row, to.col)
+    const fromN = indexToNotation(from.row, from.col)
+    const toN = indexToNotation(to.row, to.col)
 
-    // Check the source cell has a piece belonging to current player
     const srcPiece = board[from.row]?.[from.col]
-    if (!srcPiece) {
-      addEntry('error', `No piece at ${fromNotation}.`)
-      return
-    }
+    if (!srcPiece) { addEntry('error', `No piece at ${fromN}.`); return }
     if (srcPiece.player !== currentPlayer) {
-      addEntry('error', `${fromNotation} is not your piece.`)
+      addEntry('error', `${fromN} is not your piece.`)
       return
     }
 
-    // Chain capture restriction
     if (chainCapture && (from.row !== chainCapture.row || from.col !== chainCapture.col)) {
       addEntry('error', `Must continue chain capture from ${indexToNotation(chainCapture.row, chainCapture.col)}.`)
       return
     }
 
-    // Validate against legal moves
     const allMoves = chainCapture
       ? getValidMoves(board, currentPlayer, chainCapture).filter(m => m.captures.length > 0)
       : getValidMoves(board, currentPlayer)
@@ -148,143 +273,96 @@ export const useGameStore = create<GameStore>((set, get) => ({
     )
 
     if (!matchedMove) {
-      // Check if mandatory capture is being ignored
       const hasCapture = allMoves.some(m => m.captures.length > 0)
-      if (hasCapture) {
-        addEntry('error', `Invalid move — a capture is mandatory this turn.`)
-      } else {
-        addEntry('error', `Invalid move: ${fromNotation} → ${toNotation}. Diagonal only, within board bounds.`)
-      }
+      addEntry('error', hasCapture
+        ? 'Invalid move — a capture is mandatory this turn.'
+        : `Invalid move: ${fromN} → ${toN}. Diagonal only, within board bounds.`)
       return
     }
 
-    // Execute the move
-    const newBoard = applyMove(board, matchedMove)
-    const newHistory = [...gameState.moveHistory, matchedMove]
-    const isCapture = matchedMove.captures.length > 0
+    const { newGameState, playerView, hasChain, winner, isCapture } = computeMoveResult(
+      gameState, matchedMove, gameMode, gameType
+    )
+    set({ gameState: newGameState, playerView })
 
-    // Check for chain capture
-    const chainMoves = isCapture
-      ? getValidMoves(newBoard, currentPlayer, matchedMove.to).filter(m => m.captures.length > 0)
-      : []
-    const hasChain = chainMoves.length > 0
-
-    const nextPlayer: Player = hasChain ? currentPlayer : (currentPlayer === 'red' ? 'black' : 'red')
-    const winner = hasChain ? null : checkWin(newBoard, currentPlayer)
-    const newPieces = newBoard.flat().filter(Boolean) as NonNullable<typeof newBoard[0][0]>[]
-
-    // Fog: always show the human player's view (red in AI mode, current player in local)
-    const fogPlayer: Player = gameMode === 'ai' ? 'red' : nextPlayer
-
-    const newGameState: GameState = {
-      ...gameState,
-      board: newBoard,
-      currentPlayer: nextPlayer,
-      selectedPiece: hasChain ? matchedMove.to : null,
-      validMoves: hasChain ? chainMoves : [],
-      pieces: newPieces,
-      winner,
-      moveHistory: newHistory,
-      chainCapture: hasChain ? matchedMove.to : null,
+    addEntry('success', `Moved ${fromN} → ${toN}.`)
+    if (isCapture) {
+      addEntry('info', `Captured at ${indexToNotation(matchedMove.captures[0].row, matchedMove.captures[0].col)}.`)
     }
+    if (hasChain) addEntry('info', `Chain capture — continue from ${toN}.`)
+    if (winner) { addEntry('system', `Game over — ${winner === 'red' ? 'Red' : 'Black'} wins!`); return }
 
-    set({
-      gameState: newGameState,
-      playerView: applyFog(newBoard, fogPlayer),
-    })
-
-    addEntry('success', `Moved ${fromNotation} → ${toNotation}.`)
-    if (isCapture) addEntry('info', `Captured enemy piece at ${indexToNotation(matchedMove.captures[0].row, matchedMove.captures[0].col)}.`)
-    if (hasChain) addEntry('info', `Chain capture available — continue from ${toNotation}.`)
-
-    if (winner) {
-      addEntry('system', `Game over — ${winner === 'red' ? 'Red' : 'Black'} wins!`)
-      return
-    }
-
-    // Trigger bot
-    if (!hasChain && gameMode === 'ai' && nextPlayer === 'black') {
+    if (!hasChain && gameType === 'ai' && newGameState.currentPlayer === 'black') {
       set({ isAIThinking: true })
-      set(s => ({ terminalLog: [...s.terminalLog, makeEntry('system', 'Bot thinking...')] }))
+      addEntry('system', 'Bot thinking...')
       setTimeout(() => get().triggerAIMove(), 800)
     }
   },
 
+  // ── triggerAIMove ─────────────────────────────────────────────────────────
   triggerAIMove: () => {
-    const { gameState, gameMode } = get()
+    const { gameState, gameMode, gameType } = get()
     if (gameState.winner || gameState.currentPlayer !== 'black') {
       set({ isAIThinking: false })
       return
     }
 
     setTimeout(() => {
-      const { gameState: state } = get()
+      const { gameState: state, gameMode: mode, gameType: type } = get()
       try {
         const bestMove = getBestMove(state.board, 'black', 4)
-        const newBoard = applyMove(state.board, bestMove)
-        const isCapture = bestMove.captures.length > 0
-
-        const chainMoves = isCapture
-          ? getValidMoves(newBoard, 'black', bestMove.to).filter(m => m.captures.length > 0)
-          : []
-        const hasChain = chainMoves.length > 0
-        const nextPlayer: Player = hasChain ? 'black' : 'red'
-        const winner = hasChain ? null : checkWin(newBoard, 'black')
-        const newPieces = newBoard.flat().filter(Boolean) as NonNullable<typeof newBoard[0][0]>[]
+        const { newGameState, playerView, hasChain, winner, isCapture } = computeMoveResult(
+          state, bestMove, mode, type
+        )
 
         const fromN = indexToNotation(bestMove.from.row, bestMove.from.col)
         const toN = indexToNotation(bestMove.to.row, bestMove.to.col)
 
-        const newState: GameState = {
-          ...state,
-          board: newBoard,
-          currentPlayer: nextPlayer,
-          selectedPiece: null,
-          validMoves: [],
-          pieces: newPieces,
-          winner,
-          moveHistory: [...state.moveHistory, bestMove],
-          chainCapture: hasChain ? bestMove.to : null,
-        }
-
         set(s => ({
-          gameState: newState,
+          gameState: newGameState,
           isAIThinking: false,
-          playerView: applyFog(newBoard, 'red'),
-          terminalLog: [
-            ...s.terminalLog,
-            makeEntry('system', `Bot moved ${fromN} → ${toN}.${isCapture ? ' (capture)' : ''}`),
-            ...(winner ? [makeEntry('system', `Game over — ${winner === 'red' ? 'Red' : 'Black'} wins!`)] : []),
-          ],
+          playerView,
+          terminalLog: mode === 'code'
+            ? [
+                ...s.terminalLog,
+                makeEntry('system', `Bot moved ${fromN} → ${toN}.${isCapture ? ' (capture)' : ''}`),
+                ...(winner ? [makeEntry('system', `Game over — ${winner === 'red' ? 'Red' : 'Black'} wins!`)] : []),
+              ]
+            : s.terminalLog,
         }))
 
-        // Chain: bot continues
         if (hasChain && !winner) {
           set(s => ({
-            terminalLog: [...s.terminalLog, makeEntry('system', 'Bot continues chain...')],
             isAIThinking: true,
+            terminalLog: mode === 'code'
+              ? [...s.terminalLog, makeEntry('system', 'Bot continues chain...')]
+              : s.terminalLog,
           }))
           setTimeout(() => get().triggerAIMove(), 600)
         }
       } catch {
         set(s => ({
           isAIThinking: false,
-          terminalLog: [...s.terminalLog, makeEntry('error', 'Bot could not find a move.')],
+          terminalLog: mode === 'code'
+            ? [...s.terminalLog, makeEntry('error', 'Bot could not find a move.')]
+            : s.terminalLog,
         }))
       }
     }, 50)
   },
 
+  // ── misc ──────────────────────────────────────────────────────────────────
   resetGame: () => {
-    const { gameMode, roomId } = get()
-    get().initGame(gameMode, roomId ?? undefined)
+    const { gameMode, gameType, roomId } = get()
+    get().initGame(gameMode, gameType, roomId ?? undefined)
   },
 
-  setGameState: (partial) => {
-    set(s => ({ gameState: { ...s.gameState, ...partial } }))
-  },
+  setGameState: (partial) =>
+    set(s => ({ gameState: { ...s.gameState, ...partial } })),
 
   setInputValue: (v) => set({ inputValue: v }),
 
   clearLog: () => set({ terminalLog: [makeEntry('system', 'Log cleared.')] }),
+
+  setActiveSkin: (skinId) => set({ activeSkin: skinId }),
 }))

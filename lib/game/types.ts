@@ -16,7 +16,7 @@ export interface Move {
   isChain?: boolean
 }
 
-// What the board renderer gets per cell — fog-masked
+// What the board renderer gets per cell — may be fog-masked
 export type ClientCell =
   | { state: 'fog' }
   | { state: 'empty'; isDark: boolean }
@@ -49,4 +49,8 @@ export interface GameState {
   chainCapture: { row: number; col: number } | null
 }
 
-export type GameMode = 'local' | 'ai' | 'multiplayer'
+// Board visual style + interaction mode
+export type GameMode = 'classic' | 'fog' | 'code'
+
+// Opponent type
+export type GameType = 'local' | 'ai' | 'multiplayer'

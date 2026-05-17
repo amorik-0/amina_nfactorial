@@ -1,29 +1,34 @@
 'use client'
 
 import { Crown } from 'lucide-react'
+import { useGameStore } from '@/store/gameStore'
+import { getSkin } from '@/lib/skins'
 import type { Piece as PieceType } from '@/lib/game/types'
 
 interface PieceProps {
   piece: PieceType
+  isSelected?: boolean
 }
 
-export function Piece({ piece }: PieceProps) {
-  const isRed = piece.player === 'red'
+export function Piece({ piece, isSelected }: PieceProps) {
+  const activeSkin = useGameStore(s => s.activeSkin)
+  const skin = getSkin(activeSkin)
+
+  const isRed  = piece.player === 'red'
   const isKing = piece.type === 'king'
 
   return (
     <div
       className={`
         w-8 h-8 rounded-full border-2 flex items-center justify-center select-none
-        ${isRed
-          ? 'bg-white border-zinc-400'
-          : 'bg-zinc-950 border-zinc-600'
-        }
+        transition-transform duration-150 ease-out
+        ${isRed ? skin.redPiece : skin.blackPiece}
+        ${isSelected ? 'scale-110 shadow-lg' : ''}
       `}
     >
       {isKing && (
         <Crown
-          className={isRed ? 'text-zinc-800' : 'text-zinc-300'}
+          className={isRed ? skin.redCrown : skin.blackCrown}
           size={12}
           strokeWidth={2}
         />
