@@ -5,41 +5,47 @@ import type { Piece } from '@/lib/game/types'
 
 interface StaticBoardProps {
   board: (Piece | null)[][]
-  /** Cells to outline in gold — e.g. the crown zone */
   crownCells?: { row: number; col: number }[]
 }
 
 const COLS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 const ROWS = [8, 7, 6, 5, 4, 3, 2, 1]
+const DEFAULT_CROWN = [1, 3, 5, 7].map(col => ({ row: 0, col }))
 
-// Crown zone: row 0 dark cells (cols 1,3,5,7)
-const CROWN_ZONE = [1, 3, 5, 7].map(col => ({ row: 0, col }))
-
-function StaticPiece({ piece }: { piece: Piece }) {
+function NeonPiece({ piece }: { piece: Piece }) {
   const isRed  = piece.player === 'red'
   const isKing = piece.type === 'king'
+
   return (
     <div
       className={`
-        w-8 h-8 rounded-full border-2 flex items-center justify-center select-none
+        w-8 h-8 rounded-full border-2 flex items-center justify-center select-none relative
         ${isRed
-          ? 'bg-red-500 border-red-700 shadow-[inset_0_2px_4px_rgba(255,255,255,0.3)]'
-          : 'bg-zinc-700 border-zinc-900 shadow-[inset_0_2px_4px_rgba(255,255,255,0.1)]'
+          ? 'bg-red-700 border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.75),0_0_20px_rgba(239,68,68,0.35),inset_0_1px_4px_rgba(255,150,150,0.4)]'
+          : 'bg-[#1e1e2e] border-[#3a3a5c] shadow-[inset_0_1px_3px_rgba(100,100,200,0.15)]'
         }
       `}
     >
+      {/* Circuit ring on black pieces */}
+      {!isRed && (
+        <div className="absolute inset-[3px] rounded-full border border-[#2a2a4a]/60" />
+      )}
+      {/* Inner glow ring on red pieces */}
+      {isRed && (
+        <div className="absolute inset-[3px] rounded-full border border-red-400/30" />
+      )}
       {isKing && (
         <Crown
-          size={12}
+          size={11}
           strokeWidth={2}
-          className={isRed ? 'text-red-100' : 'text-zinc-300'}
+          className={isRed ? 'text-red-100 drop-shadow-[0_0_4px_rgba(255,100,100,0.8)]' : 'text-[#6a6aaa]'}
         />
       )}
     </div>
   )
 }
 
-function StaticCell({
+function NeonCell({
   piece,
   isDark,
   isCrownZone,
@@ -48,50 +54,61 @@ function StaticCell({
   isDark: boolean
   isCrownZone: boolean
 }) {
-  const bg = isDark ? 'bg-zinc-600' : 'bg-zinc-200'
+  const bg = isDark ? 'bg-[#15151f]' : 'bg-[#0d0d14]'
 
   return (
     <div
       className={`w-10 h-10 flex-shrink-0 relative flex items-center justify-center ${bg}`}
     >
-      {/* Crown zone marker */}
-      {isCrownZone && (
-        <div className="absolute inset-0 ring-1 ring-inset ring-yellow-400/50 pointer-events-none" />
+      {/* Subtle cell border for dark cells */}
+      {isDark && (
+        <div className="absolute inset-0 ring-1 ring-inset ring-[#2a2a3a]/40 pointer-events-none" />
       )}
-      {piece && <StaticPiece piece={piece} />}
+
+      {/* Crown zone — pulsing amber aura */}
+      {isCrownZone && (
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute inset-0 ring-1 ring-inset ring-amber-500/40 animate-pulse" />
+          <div className="absolute inset-0 bg-amber-500/5 animate-pulse" />
+        </div>
+      )}
+
+      {piece && <NeonPiece piece={piece} />}
     </div>
   )
 }
 
 export function StaticBoard({ board, crownCells }: StaticBoardProps) {
-  const highlights = crownCells ?? CROWN_ZONE
+  const highlights = crownCells ?? DEFAULT_CROWN
 
   if (!board || board.length === 0) return null
 
   return (
-    <div className="inline-flex flex-col border border-zinc-700 font-mono">
+    <div
+      className="inline-flex flex-col"
+      style={{ boxShadow: '0 0 0 1px #2a2a3a, 0 0 20px rgba(80,80,180,0.12)' }}
+    >
       {/* Column labels — top */}
-      <div className="flex bg-zinc-900">
+      <div className="flex bg-[#0a0a10]">
         <div className="w-6" />
         {COLS.map(c => (
-          <div key={c} className="w-10 text-center py-1 text-[10px] text-zinc-500">
+          <div key={c} className="w-10 text-center py-1 font-mono text-[10px] text-emerald-500/70 tracking-widest">
             {c}
           </div>
         ))}
         <div className="w-6" />
       </div>
 
-      {/* Rows */}
       {board.map((row, r) => (
         <div key={r} className="flex">
-          <div className="w-6 flex items-center justify-center text-[10px] text-zinc-500 bg-zinc-900">
+          <div className="w-6 flex items-center justify-center font-mono text-[10px] text-emerald-500/70 bg-[#0a0a10]">
             {ROWS[r]}
           </div>
           {row.map((cell, c) => {
-            const isDark       = (r + c) % 2 === 1
-            const isCrownZone  = highlights.some(h => h.row === r && h.col === c)
+            const isDark      = (r + c) % 2 === 1
+            const isCrownZone = highlights.some(h => h.row === r && h.col === c)
             return (
-              <StaticCell
+              <NeonCell
                 key={`${r}-${c}`}
                 piece={cell}
                 isDark={isDark}
@@ -99,17 +116,17 @@ export function StaticBoard({ board, crownCells }: StaticBoardProps) {
               />
             )
           })}
-          <div className="w-6 flex items-center justify-center text-[10px] text-zinc-500 bg-zinc-900">
+          <div className="w-6 flex items-center justify-center font-mono text-[10px] text-emerald-500/70 bg-[#0a0a10]">
             {ROWS[r]}
           </div>
         </div>
       ))}
 
       {/* Column labels — bottom */}
-      <div className="flex bg-zinc-900">
+      <div className="flex bg-[#0a0a10]">
         <div className="w-6" />
         {COLS.map(c => (
-          <div key={c} className="w-10 text-center py-1 text-[10px] text-zinc-500">
+          <div key={c} className="w-10 text-center py-1 font-mono text-[10px] text-emerald-500/70 tracking-widest">
             {c}
           </div>
         ))}

@@ -2,7 +2,7 @@
 
 import { Crown } from 'lucide-react'
 import { useGameStore } from '@/store/gameStore'
-import { getSkin } from '@/lib/skins'
+import { getEffectiveSkin } from '@/lib/skins'
 import type { Piece as PieceType } from '@/lib/game/types'
 
 interface PieceProps {
@@ -12,7 +12,8 @@ interface PieceProps {
 
 export function Piece({ piece, isSelected }: PieceProps) {
   const activeSkin = useGameStore(s => s.activeSkin)
-  const skin = getSkin(activeSkin)
+  const gameMode   = useGameStore(s => s.gameMode)
+  const skin       = getEffectiveSkin(activeSkin, gameMode)
 
   const isRed  = piece.player === 'red'
   const isKing = piece.type === 'king'
@@ -23,7 +24,7 @@ export function Piece({ piece, isSelected }: PieceProps) {
         w-8 h-8 rounded-full border-2 flex items-center justify-center select-none
         transition-transform duration-150 ease-out
         ${isRed ? skin.redPiece : skin.blackPiece}
-        ${isSelected ? 'scale-110 shadow-lg' : ''}
+        ${isSelected ? 'scale-110' : ''}
       `}
     >
       {isKing && (

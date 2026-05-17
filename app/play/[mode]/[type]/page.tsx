@@ -216,23 +216,42 @@ function PlayContent() {
   }
 
   // ── Classic / Fog: light minimal, board centered ────────────────────────────
-  const isFog = mode === 'fog'
-  const bgClass = isFog ? 'bg-slate-100' : 'bg-stone-50'
+  const isFog     = mode === 'fog'
+  const isClassic = mode === 'classic'
+  const bgClass   = isFog ? 'bg-slate-100' : isClassic ? 'bg-[#FAF6F0]' : 'bg-stone-50'
+
+  const redCount   = gameState.pieces.filter(p => p.player === 'red').length
+  const blackCount = gameState.pieces.filter(p => p.player === 'black').length
+  const totalCount = redCount + blackCount
+  // Eval bar: % of bar that is "black" (top) vs "red" (bottom)
+  const blackPct = totalCount === 0 ? 50 : Math.round((blackCount / totalCount) * 100)
+  const capturedBlack = 12 - blackCount   // taken by red
+  const capturedRed   = 12 - redCount     // taken by black
 
   return (
     <div className={`min-h-screen flex flex-col ${bgClass}`}>
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-3 border-b border-stone-200 bg-white/80 backdrop-blur-sm">
+      <header
+        className="flex items-center justify-between px-6 py-3 bg-white/80 backdrop-blur-sm"
+        style={{ borderBottom: isClassic ? '1px solid rgba(138,98,72,0.18)' : undefined }}
+        {...(!isClassic && { className: 'flex items-center justify-between px-6 py-3 border-b border-stone-200 bg-white/80 backdrop-blur-sm' })}
+      >
         <Link
           href="/"
-          className="flex items-center gap-1.5 text-stone-400 hover:text-stone-700 text-sm transition-colors"
+          className="flex items-center gap-1.5 text-sm transition-colors"
+          style={{ color: isClassic ? '#8A7060' : undefined }}
         >
-          <ArrowLeft size={14} /> Home
+          <ArrowLeft size={14} />{' '}
+          <span className={isClassic ? '' : 'text-stone-400 hover:text-stone-700'}>Home</span>
         </Link>
 
         <div className="flex items-center gap-3">
-          <span className="text-[11px] font-medium text-stone-400 uppercase tracking-widest">
-            {MODE_LABELS[mode]} · {type}
+          <span
+            className="text-[11px] font-medium uppercase tracking-widest"
+            style={{ color: isClassic ? '#8A7060' : undefined }}
+          >
+            {!isClassic && <span className="text-stone-400">{MODE_LABELS[mode]} · {type}</span>}
+            {isClassic && <>{MODE_LABELS[mode]} · {type}</>}
           </span>
 
           {type === 'multiplayer' && roomId && (
@@ -249,19 +268,21 @@ function PlayContent() {
             </>
           )}
 
-          <StatusBadge gameState={gameState} isAIThinking={isAIThinking} dark={false} />
+          <StatusBadge gameState={gameState} isAIThinking={isAIThinking} dark={false} isClassic={isClassic} />
         </div>
 
         <button
           onClick={resetGame}
-          className="flex items-center gap-1.5 text-stone-400 hover:text-stone-700 text-sm transition-colors"
+          className="flex items-center gap-1.5 text-sm transition-colors"
+          style={{ color: isClassic ? '#8A7060' : undefined }}
         >
-          <RefreshCcw size={14} /> New game
+          <RefreshCcw size={14} />{' '}
+          <span className={isClassic ? '' : 'text-stone-400 hover:text-stone-700'}>New game</span>
         </button>
       </header>
 
       {/* Board area */}
-      <main className="flex-1 flex flex-col items-center justify-center gap-6 px-4 py-10">
+      <main className="flex-1 flex flex-col items-center justify-center gap-5 px-4 py-10">
         {isFog && (
           <div className="flex items-center gap-4 text-[11px] text-stone-400">
             <span className="flex items-center gap-1.5">
@@ -276,18 +297,75 @@ function PlayContent() {
           </div>
         )}
 
-        <Board clientBoard={playerView} />
+        {/* Board + eval bar (Classic only) */}
+        <div className={isClassic ? 'flex items-stretch gap-2' : undefined}>
+          <Board clientBoard={playerView} />
 
-        <PieceCount gameState={gameState} dark={false} />
+          {/* Eval bar — right of board, Classic mode only */}
+          {isClassic && (
+            <div className="flex flex-col w-2 rounded-full overflow-hidden" style={{ border: '1px solid rgba(138,98,72,0.2)' }}>
+              {/* Black top */}
+              <div
+                className="transition-all duration-700"
+                style={{ height: `${blackPct}%`, backgroundColor: '#4A4A4A' }}
+              />
+              {/* Red bottom */}
+              <div
+                className="flex-1 transition-all duration-700"
+                style={{ backgroundColor: '#C4785C' }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Captured pieces — Classic mode only */}
+        {isClassic && (capturedBlack > 0 || capturedRed > 0) && (
+          <div className="flex flex-col gap-1.5 items-start">
+            {capturedBlack > 0 && (
+              <div className="flex items-center gap-1">
+                {Array.from({ length: capturedBlack }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-4 h-4 rounded-full border"
+                    style={{ backgroundColor: '#4A4A4A', borderColor: '#2A2A2A' }}
+                  />
+                ))}
+              </div>
+            )}
+            {capturedRed > 0 && (
+              <div className="flex items-center gap-1">
+                {Array.from({ length: capturedRed }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-4 h-4 rounded-full border"
+                    style={{ backgroundColor: '#C4785C', borderColor: '#9E5C42' }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {!isClassic && <PieceCount gameState={gameState} dark={false} />}
 
         {gameState.winner && (
-          <div className="mt-2 px-6 py-4 bg-white border border-stone-200 shadow-sm text-center">
-            <p className="font-semibold text-stone-800 text-sm">
-              {gameState.winner === 'red' ? 'Red' : 'Black'} wins!
+          <div
+            className="mt-2 px-6 py-4 bg-white text-center"
+            style={isClassic
+              ? { border: '1px solid rgba(138,98,72,0.25)', borderRadius: '12px', boxShadow: '0 2px 16px rgba(0,0,0,0.07)' }
+              : { border: '1px solid #e7e5e4', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }
+            }
+          >
+            <p
+              className="font-semibold text-sm"
+              style={{ color: isClassic ? '#5A4030' : undefined }}
+            >
+              {gameState.winner === 'red' ? (isClassic ? 'Terracotta' : 'Red') : (isClassic ? 'Graphite' : 'Black')} wins!
             </p>
             <button
               onClick={resetGame}
-              className="mt-2 text-xs text-blue-600 underline"
+              className="mt-2 text-xs underline"
+              style={{ color: isClassic ? '#C4785C' : '#3b82f6' }}
             >
               Play again
             </button>
@@ -304,27 +382,41 @@ function StatusBadge({
   gameState,
   isAIThinking,
   dark,
+  isClassic = false,
 }: {
   gameState: ReturnType<typeof useGameStore.getState>['gameState']
   isAIThinking: boolean
   dark: boolean
+  isClassic?: boolean
 }) {
-  const base   = dark ? 'font-mono text-xs text-zinc-400' : 'text-sm text-stone-500'
-  const accent = dark ? 'text-blue-400' : 'text-blue-600'
+  const base   = dark ? 'font-mono text-xs text-zinc-400' : 'text-sm'
+  const accent = dark ? 'text-blue-400' : isClassic ? '' : 'text-blue-600'
+
+  const redLabel   = isClassic ? 'Terracotta' : 'Red'
+  const blackLabel = isClassic ? 'Graphite'   : 'Black'
 
   if (gameState.winner) return (
-    <span className={`${base} ${accent}`}>
-      {gameState.winner === 'red' ? 'Red wins' : 'Black wins'}
+    <span
+      className={`${base} ${accent}`}
+      style={isClassic ? { color: gameState.winner === 'red' ? '#C4785C' : '#4A4A4A' } : undefined}
+    >
+      {gameState.winner === 'red' ? redLabel : blackLabel} wins
     </span>
   )
   if (isAIThinking) return (
-    <span className={`flex items-center gap-1.5 ${base}`}>
+    <span className={`flex items-center gap-1.5 ${base}`} style={isClassic ? { color: '#8A7060' } : undefined}>
       <Loader size={10} className="animate-spin" /> Bot thinking
     </span>
   )
   return (
-    <span className={base}>
-      {gameState.currentPlayer === 'red' ? 'Red to move' : 'Black to move'}
+    <span
+      className={base}
+      style={isClassic
+        ? { color: gameState.currentPlayer === 'red' ? '#C4785C' : '#4A4A4A', fontWeight: 500 }
+        : { color: '#78716c' }
+      }
+    >
+      {gameState.currentPlayer === 'red' ? redLabel : blackLabel} to move
     </span>
   )
 }

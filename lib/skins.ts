@@ -20,7 +20,33 @@ export interface SkinConfig {
   blackCrown: string
   // Label color
   labelText: string
+  // Valid move / selection indicators
+  validMoveDot?: string     // optional override for move dot color
+  selectionRing?: string    // optional override for selection ring
 }
+
+// ─── warm classic skin (auto-applied when gameMode === 'classic' + default) ──
+
+export const WARM_CLASSIC_SKIN: SkinConfig = {
+  id: 'classic-warm',
+  name: 'Classic Warm',
+  description: 'Terracotta pieces on a warm felt board.',
+  priceCents: 0,
+  stripeProductId: '',
+  darkCell:    'bg-[#A07050]',
+  lightCell:   'bg-[#F0E8DC]',
+  fogCell:     'bg-stone-900',
+  boardBorder: 'border-[#8A6248] shadow-[0_4px_24px_rgba(0,0,0,0.10)]',
+  redPiece:    'bg-[#C4785C] border-[#9E5C42] shadow-[inset_0_2px_5px_rgba(255,255,255,0.28),0_2px_5px_rgba(0,0,0,0.25)]',
+  blackPiece:  'bg-[#4A4A4A] border-[#2A2A2A] shadow-[inset_0_1px_4px_rgba(255,255,255,0.12),0_2px_5px_rgba(0,0,0,0.35)]',
+  redCrown:    'text-[#FFE4D6]',
+  blackCrown:  'text-zinc-300',
+  labelText:   'text-[#8A7060]',
+  validMoveDot: 'bg-amber-300/50 ring-1 ring-amber-400/30',
+  selectionRing: 'ring-amber-500/80',
+}
+
+// ─── purchasable skins ─────────────────────────────────────────────────────────
 
 export const SKINS: Record<string, SkinConfig> = {
   default: {
@@ -94,4 +120,13 @@ export type SkinId = keyof typeof SKINS
 
 export function getSkin(id: string): SkinConfig {
   return SKINS[id] ?? SKINS.default
+}
+
+/**
+ * Returns the effective skin for a given mode + active skin combination.
+ * Classic mode with the default skin → warm terracotta theme.
+ */
+export function getEffectiveSkin(activeSkin: string, gameMode: string): SkinConfig {
+  if (gameMode === 'classic' && activeSkin === 'default') return WARM_CLASSIC_SKIN
+  return getSkin(activeSkin)
 }

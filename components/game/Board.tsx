@@ -2,7 +2,7 @@
 
 import { Cell } from './Cell'
 import { useGameStore } from '@/store/gameStore'
-import { getSkin } from '@/lib/skins'
+import { getEffectiveSkin } from '@/lib/skins'
 import type { ClientBoard } from '@/lib/game/types'
 
 interface BoardProps {
@@ -15,7 +15,7 @@ const ROWS = [8, 7, 6, 5, 4, 3, 2, 1]
 export function Board({ clientBoard }: BoardProps) {
   const activeSkin = useGameStore(s => s.activeSkin)
   const gameMode   = useGameStore(s => s.gameMode)
-  const skin = getSkin(activeSkin)
+  const skin       = getEffectiveSkin(activeSkin, gameMode)
 
   if (!clientBoard || clientBoard.length === 0) return (
     <div className="w-[352px] h-[352px] bg-zinc-900 border border-zinc-800 flex items-center justify-center">
