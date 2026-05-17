@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import { StaticBoard } from '@/components/game/StaticBoard'
 import { getInitialBoard } from '@/lib/initialBoard'
@@ -117,6 +118,21 @@ function StepLevel({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+const TASK_DESCRIPTIONS: Record<Mode, Record<Level, string>> = {
+  classic: {
+    easy:   'Find the forced capture that gains a piece advantage. Look for an undefended opponent piece and jump over it in one move.',
+    normal: 'Analyse the position carefully — there is a two-move combination that captures two pieces. Find the forced sequence before time runs out.',
+    hard:   'A multi-jump chain is hidden in this position. Calculate three moves ahead to clear the path and crown your piece.',
+  },
+  coder: {
+    easy:   'Write board.move() to capture the opponent\'s lone piece. Use the coordinate notation shown on the board (e.g. board.move("C3","D4")).',
+    normal: 'Code a two-step sequence: first set up the position, then execute the jump. Both commands must follow forced-capture rules.',
+    hard:   'Craft a three-command script that chains multiple captures. The engine enforces mandatory captures — every move must be legal.',
+  },
+}
+
+const TIMER_SECONDS: Record<Level, number> = { easy: 60, normal: 45, hard: 30 }
+
 // Step 3 — Show actual task (board + description + timer)
 // ─────────────────────────────────────────────────────────────────────────────
 function StepTask({
@@ -129,11 +145,36 @@ function StepTask({
   onBack: () => void
 }) {
   const board = getInitialBoard()
+  const router = useRouter()
+  const total = TIMER_SECONDS[level]
+  const [seconds, setSeconds] = useState(total)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [started, setStarted] = useState(false)
 
-  // Live link to actual puzzle page if user wants to start solving.
   const puzzleHref = mode === 'classic'
     ? `/puzzles/classic?diff=${level}`
     : `/puzzles?diff=${level}`
+
+  function startTimer() {
+    if (started) return
+    setStarted(true)
+    intervalRef.current = setInterval(() => {
+      setSeconds(s => {
+        if (s <= 1) {
+          clearInterval(intervalRef.current!)
+          router.push(puzzleHref)
+          return 0
+        }
+        return s - 1
+      })
+    }, 1000)
+  }
+
+  useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current) }, [])
+
+  const mm = String(Math.floor(seconds / 60)).padStart(2, '0')
+  const ss = String(seconds % 60).padStart(2, '0')
+  const urgent = seconds <= 10 && started
 
   return (
     <section>
@@ -161,17 +202,16 @@ function StepTask({
         <div className="flex-1">
           <h3 className="text-xl font-extrabold text-brown-900 mb-3">Your task:</h3>
           <p className="text-sm text-brown-700 font-semibold mb-6 leading-relaxed">
-            TASK TASK TASK TASK TASK<br />
-            TASK TASK TASK TASK TASK<br />
-            TASK TASK TASK TASK TASK<br />
-            TASK TASK TASK TASK TASK<br />
-            TASK TASK TASK TASK TASK
+            {TASK_DESCRIPTIONS[mode][level]}
           </p>
-          <p className="text-base font-extrabold text-brown-900">Time:</p>
-          <p className="text-4xl font-extrabold text-brown-900 tabular-nums mb-6">00:00</p>
+          <p className="text-base font-extrabold text-brown-900">Time limit:</p>
+          <p className={`text-4xl font-extrabold tabular-nums mb-6 ${urgent ? 'text-red-500' : 'text-brown-900'}`}>
+            {mm}:{ss}
+          </p>
 
           <Link
             href={puzzleHref}
+            onClick={startTimer}
             className="inline-block bg-sage-400 hover:bg-sage-500 rounded-pill px-8 py-3 text-base font-extrabold text-brown-900 shadow-button transition-colors"
           >
             Start
