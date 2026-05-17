@@ -1,34 +1,67 @@
-// Skin definitions — each skin maps to concrete Tailwind classes
-// and Stripe price IDs (set your real IDs in .env.local)
+import type { CSSProperties } from 'react'
 
-export interface SkinConfig {
+export interface SkinVisual {
+  className?: string
+  style?: CSSProperties
+}
+
+export interface Skin {
   id: string
   name: string
   description: string
-  priceCents: number        // 0 = free
-  stripeProductId: string   // set in Stripe dashboard, store in env
-  // Board cell colors
-  darkCell: string          // Tailwind bg class for dark squares
-  lightCell: string         // Tailwind bg class for light squares
-  fogCell: string           // Tailwind bg class for fog squares
-  boardBorder: string       // Tailwind border + shadow classes
-  // Piece colors
-  redPiece: string          // Tailwind classes for red pieces
-  blackPiece: string        // Tailwind classes for black pieces
-  // Crown icon color
+  priceCents: number
+  stripeProductId: string
+  boardStyles: {
+    frame: SkinVisual
+    lightCell: SkinVisual
+    darkCell: SkinVisual
+    fogCell: SkinVisual
+    label: SkinVisual
+    selectionRing?: CSSProperties
+    moveDot?: CSSProperties
+    captureRing?: CSSProperties
+  }
+  pieceStyles: {
+    red: SkinVisual
+    black: SkinVisual
+    redCrown: string
+    blackCrown: string
+  }
+  darkCell: string
+  lightCell: string
+  fogCell: string
+  boardBorder: string
+  redPiece: string
+  blackPiece: string
   redCrown: string
   blackCrown: string
-  // Label color
   labelText: string
-  // Valid move / selection indicators
-  validMoveDot?: string     // optional override for move dot color
-  selectionRing?: string    // optional override for selection ring
+  validMoveDot?: string
+  selectionRing?: string
 }
 
-// ─── warm classic skin (auto-applied when gameMode === 'classic' + default) ──
+export type SkinConfig = Skin
 
-// Green & pink pieces + dark/cream board matching the design
-export const WARM_CLASSIC_SKIN: SkinConfig = {
+function skin(input: Omit<Skin, 'boardStyles' | 'pieceStyles'>): Skin {
+  return {
+    ...input,
+    boardStyles: {
+      frame: { className: input.boardBorder },
+      lightCell: { className: input.lightCell },
+      darkCell: { className: input.darkCell },
+      fogCell: { className: input.fogCell },
+      label: { className: input.labelText },
+    },
+    pieceStyles: {
+      red: { className: input.redPiece },
+      black: { className: input.blackPiece },
+      redCrown: input.redCrown,
+      blackCrown: input.blackCrown,
+    },
+  }
+}
+
+export const WARM_CLASSIC_SKIN: Skin = skin({
   id: 'classic-warm',
   name: 'Fast Food',
   description: 'Green & pink pieces on a dark/cream board.',
@@ -46,12 +79,10 @@ export const WARM_CLASSIC_SKIN: SkinConfig = {
   labelText:   'text-[#5A5030]',
   validMoveDot: 'bg-green-300/50 ring-1 ring-green-400/30',
   selectionRing: 'ring-green-500/80',
-}
+})
 
-// ─── purchasable skins ─────────────────────────────────────────────────────────
-
-export const SKINS: Record<string, SkinConfig> = {
-  default: {
+export const SKINS: Record<string, Skin> = {
+  default: skin({
     id: 'default',
     name: 'Fast Food',
     description: 'Burgers and shawarma — the tastiest set of checkers.',
@@ -66,8 +97,8 @@ export const SKINS: Record<string, SkinConfig> = {
     redCrown: 'text-[#D4A847]',
     blackCrown: 'text-[#D4A847]',
     labelText: 'text-[#5A5030]',
-  },
-  wood: {
+  }),
+  wood: skin({
     id: 'wood',
     name: 'Street art',
     description: 'Bold graffiti vibes on a brick-wall board.',
@@ -82,8 +113,8 @@ export const SKINS: Record<string, SkinConfig> = {
     redCrown: 'text-yellow-200',
     blackCrown: 'text-yellow-300',
     labelText: 'text-amber-700',
-  },
-  midnight: {
+  }),
+  midnight: skin({
     id: 'midnight',
     name: 'Pets',
     description: 'Paw-print pieces for cat & dog lovers.',
@@ -98,8 +129,8 @@ export const SKINS: Record<string, SkinConfig> = {
     redCrown: 'text-white',
     blackCrown: 'text-violet-200',
     labelText: 'text-indigo-400',
-  },
-  neon: {
+  }),
+  neon: skin({
     id: 'neon',
     name: 'Just the way you are',
     description: 'High-contrast cyberpunk aesthetic.',
@@ -114,21 +145,33 @@ export const SKINS: Record<string, SkinConfig> = {
     redCrown: 'text-black',
     blackCrown: 'text-white',
     labelText: 'text-emerald-500',
-  },
+  }),
+}
+
+SKINS.wood.boardStyles.frame.style = {
+  backgroundImage: 'url("/доска.png")',
+  backgroundSize: 'cover',
+  backgroundPosition: 'center',
+}
+
+SKINS.wood.boardStyles.darkCell.style = {
+  backgroundImage: 'linear-gradient(rgba(146,64,14,.84), rgba(146,64,14,.84)), url("/доска.png")',
+  backgroundSize: '520px 520px',
+}
+
+SKINS.wood.boardStyles.lightCell.style = {
+  backgroundImage: 'linear-gradient(rgba(254,243,199,.82), rgba(254,243,199,.82)), url("/доска.png")',
+  backgroundSize: '520px 520px',
 }
 
 export const SKIN_ORDER = ['default', 'wood', 'midnight', 'neon'] as const
 export type SkinId = keyof typeof SKINS
 
-export function getSkin(id: string): SkinConfig {
+export function getSkin(id: string): Skin {
   return SKINS[id] ?? SKINS.default
 }
 
-/**
- * Returns the effective skin for a given mode + active skin combination.
- * Classic mode with the default skin → warm terracotta theme.
- */
-export function getEffectiveSkin(activeSkin: string, gameMode: string): SkinConfig {
-  if (gameMode === 'classic' && activeSkin === 'default') return WARM_CLASSIC_SKIN
-  return getSkin(activeSkin)
+export function getEffectiveSkin(activeSkinId: string, gameMode: string): Skin {
+  if (gameMode === 'classic' && activeSkinId === 'default') return WARM_CLASSIC_SKIN
+  return getSkin(activeSkinId)
 }

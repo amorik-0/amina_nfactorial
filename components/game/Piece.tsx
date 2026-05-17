@@ -4,8 +4,8 @@ import { motion } from 'framer-motion'
 import { Crown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Skin } from '@/lib/skins'
-import type { GameMode } from '@/lib/game/types'
-import type { Piece as PieceType } from '@/lib/game/types'
+import type { CSSProperties } from 'react'
+import type { GameMode, Piece as PieceType } from '@/lib/game/types'
 
 const RING_COLOR = {
   green: '#88BD70',
@@ -17,7 +17,7 @@ const INNER_GRADIENT = {
   pink:  'radial-gradient(circle at 35% 28%, #FFF0F4 0%, #FFE0E5 8%, #FFC2E8 22%)',
 }
 
-function makeOuter(color: string, isSelected: boolean): React.CSSProperties {
+function makeOuter(color: string, isSelected: boolean): CSSProperties {
   return {
     width:  32,
     height: 32,
@@ -33,7 +33,7 @@ function makeOuter(color: string, isSelected: boolean): React.CSSProperties {
   }
 }
 
-function makeInner(gradient: string): React.CSSProperties {
+function makeInner(gradient: string): CSSProperties {
   return {
     width:  '68%',
     height: '68%',
@@ -46,7 +46,7 @@ function makeInner(gradient: string): React.CSSProperties {
   }
 }
 
-const CROWN_STYLE: React.CSSProperties = {
+const CROWN_STYLE: CSSProperties = {
   color: '#C8A020',
   filter: 'drop-shadow(0 1px 2px rgba(180,140,0,0.60))',
 }

@@ -109,7 +109,7 @@ interface GameStore {
   playerView: ClientBoard
   terminalLog: TerminalEntry[]
   inputValue: string
-  activeSkin: string
+  activeSkinId: string
   humanPlayer: Player
   playerRole: PlayerRole | null
 
@@ -141,7 +141,7 @@ export const useGameStore = create<GameStore>()(persist((set, get) => ({
     makeEntry('system', 'You play as Red. Bot plays as Black.'),
   ],
   inputValue: '',
-  activeSkin: 'default',
+  activeSkinId: 'default',
   humanPlayer: 'red',
   playerRole: null,
 
@@ -420,10 +420,18 @@ export const useGameStore = create<GameStore>()(persist((set, get) => ({
 
   clearLog: () => set({ terminalLog: [makeEntry('system', 'Log cleared.')] }),
 
-  setActiveSkin: (skinId) => set({ activeSkin: skinId }),
+  setActiveSkin: (skinId) => set({ activeSkinId: skinId }),
   setPlayerRole: (role) => set({ playerRole: role }),
 }), {
   name: 'checkers-duel-settings',
+  version: 1,
   storage: createJSONStorage(() => typeof window === 'undefined' ? noopStorage : localStorage),
-  partialize: (state) => ({ activeSkin: state.activeSkin }),
+  partialize: (state) => ({ activeSkinId: state.activeSkinId }),
+  migrate: (state) => {
+    const persisted = state as Partial<GameStore> & { activeSkin?: string }
+    return {
+      ...persisted,
+      activeSkinId: persisted.activeSkinId ?? persisted.activeSkin ?? 'default',
+    }
+  },
 }))
