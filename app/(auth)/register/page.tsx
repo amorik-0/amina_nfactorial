@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,12 +18,20 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
+  useEffect(() => {
+    let mounted = true
+    createClient().auth.getUser().then(({ data }) => {
+      if (mounted && data.user) router.replace('/profile')
+    })
+    return () => { mounted = false }
+  }, [router])
+
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -33,23 +42,37 @@ export default function RegisterPage() {
     if (error) {
       toast({ title: 'Registration failed', description: error.message, variant: 'destructive' })
     } else {
+      if (data.user && data.session) {
+        await supabase.from('profiles').upsert({
+          id: data.user.id,
+          username,
+        })
+        toast({ title: 'Account created!', description: 'Your profile is ready.' })
+        router.push('/profile')
+        router.refresh()
+        setLoading(false)
+        return
+      }
+
       toast({
         title: 'Account created!',
         description: 'Check your email to confirm your account.',
       })
-      router.push('/auth/login')
+      router.push('/login')
     }
 
     setLoading(false)
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <Card className="w-full max-w-sm">
+    <main className="min-h-screen bg-cream-200 flex items-center justify-center px-4 py-12">
+      <Card className="w-full max-w-[420px]">
         <CardHeader className="text-center">
-          <div className="text-4xl mb-2">♟</div>
-          <CardTitle className="text-2xl">Create account</CardTitle>
-          <CardDescription>Join and track your checkers stats</CardDescription>
+          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-sage-400 shadow-button">
+            <UserPlus size={22} className="text-brown-900" />
+          </div>
+          <CardTitle className="text-3xl">Create account</CardTitle>
+          <CardDescription>Join to save progress, skins, and match history.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleRegister} className="space-y-4">
@@ -58,7 +81,7 @@ export default function RegisterPage() {
               <Input
                 id="username"
                 type="text"
-                placeholder="CheckersMaster42"
+                placeholder="Your player name"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 required
@@ -82,7 +105,7 @@ export default function RegisterPage() {
               <Input
                 id="password"
                 type="password"
-                placeholder="••••••••"
+                placeholder="At least 6 characters"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
@@ -94,20 +117,20 @@ export default function RegisterPage() {
             </Button>
           </form>
 
-          <p className="text-center text-cream/50 text-sm mt-4">
+          <p className="text-center text-brown-700 text-sm mt-5 font-medium">
             Already have an account?{' '}
-            <Link href="/auth/login" className="text-[#e07b54] hover:underline">
+            <Link href="/login" className="text-brown-900 font-extrabold hover:underline">
               Sign in
             </Link>
           </p>
 
           <p className="text-center mt-3">
-            <Link href="/" className="text-cream/40 text-xs hover:text-cream/60">
-              ← Back to home
+            <Link href="/" className="text-brown-500 text-xs font-bold hover:text-brown-900">
+              Back to home
             </Link>
           </p>
         </CardContent>
       </Card>
-    </div>
+    </main>
   )
 }

@@ -1,9 +1,47 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, Lock, Loader, Crown } from 'lucide-react'
+import { Check, Lock, Loader, Crown, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { SkinConfig } from '@/lib/skins'
+
+// ── Mini board preview — 4 × 4 grid ──────────────────────────────────────────
+function MiniBoardPreview({ skin }: { skin: SkinConfig }) {
+  const cells = Array.from({ length: 16 }, (_, i) => {
+    const r = Math.floor(i / 4)
+    const c = i % 4
+    const isDark = (r + c) % 2 === 1
+    // place a red piece at (1,1) and black at (2,2) for preview
+    const hasRed   = r === 1 && c === 1 && isDark
+    const hasBlack = r === 2 && c === 2 && isDark
+    return { isDark, hasRed, hasBlack }
+  })
+
+  return (
+    <div
+      className={cn('grid grid-cols-4 w-full aspect-square rounded-md overflow-hidden border', skin.boardBorder)}
+    >
+      {cells.map(({ isDark, hasRed, hasBlack }, i) => (
+        <div
+          key={i}
+          className={cn(
+            'flex items-center justify-center',
+            isDark ? skin.darkCell : skin.lightCell
+          )}
+        >
+          {hasRed && (
+            <div className={cn('w-3/4 h-3/4 rounded-full border', skin.redPiece)} />
+          )}
+          {hasBlack && (
+            <div className={cn('w-3/4 h-3/4 rounded-full border', skin.blackPiece)} />
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface SkinCardProps {
   skin: SkinConfig
@@ -14,18 +52,14 @@ interface SkinCardProps {
   onActivate: (skinId: string) => Promise<void>
 }
 
-export function SkinCard({ skin, owned, active, onBuy, onActivate }: SkinCardProps) {
+export function SkinCard({ skin, owned, active, isPro, onBuy, onActivate }: SkinCardProps) {
   const [loading, setLoading] = useState(false)
   const isFree = skin.priceCents === 0
 
   async function handleAction() {
     setLoading(true)
     try {
-      if (owned) {
-        await onActivate(skin.id)
-      } else {
-        await onBuy(skin.id)
-      }
+      owned || isFree ? await onActivate(skin.id) : await onBuy(skin.id)
     } finally {
       setLoading(false)
     }
@@ -34,91 +68,67 @@ export function SkinCard({ skin, owned, active, onBuy, onActivate }: SkinCardPro
   return (
     <div
       className={cn(
-        'flex flex-col border p-4 gap-4 transition-colors',
-        active
-          ? 'border-blue-600 bg-zinc-900'
-          : 'border-zinc-800 bg-zinc-950 hover:border-zinc-600'
+        'flex flex-col rounded-card overflow-hidden transition-all duration-200',
+        'bg-sage-200 shadow-card hover:shadow-card-md',
+        active && 'ring-2 ring-sage-500'
       )}
     >
-      {/* Board preview — 4x4 mini board */}
-      <div
-        className={cn(
-          'grid grid-cols-4 border w-full aspect-square',
-          skin.boardBorder
-        )}
-      >
-        {Array.from({ length: 16 }).map((_, i) => {
-          const r = Math.floor(i / 4)
-          const c = i % 4
-          const isDark = (r + c) % 2 === 1
-          const isFog = r === 0 && c === 0
-
-          return (
-            <div
-              key={i}
-              className={cn(
-                'w-full aspect-square flex items-center justify-center',
-                isFog
-                  ? skin.fogCell
-                  : isDark
-                  ? skin.darkCell
-                  : skin.lightCell
-              )}
-            >
-              {/* Sample pieces */}
-              {r === 1 && c === 1 && isDark && (
-                <div className={cn('w-4/5 h-4/5 rounded-full border', skin.redPiece)} />
-              )}
-              {r === 2 && c === 2 && isDark && (
-                <div className={cn('w-4/5 h-4/5 rounded-full border', skin.blackPiece)} />
-              )}
-            </div>
-          )
-        })}
+      {/* Board preview */}
+      <div className="p-4 pb-3">
+        <MiniBoardPreview skin={skin} />
       </div>
 
       {/* Info */}
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="font-semibold text-sm text-zinc-100">{skin.name}</p>
-          <p className="text-xs text-zinc-500 mt-0.5">{skin.description}</p>
+      <div className="px-4 pb-3 flex-1 flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="font-extrabold text-sm text-brown-900 leading-snug">
+              {skin.name}
+            </p>
+            <p className="text-xs font-medium text-brown-700 mt-0.5 leading-relaxed">
+              {skin.description}
+            </p>
+          </div>
+          {/* Active badge */}
+          {active && (
+            <span className="flex items-center gap-1 text-[10px] font-bold text-sage-600 bg-sage-300 px-2 py-0.5 rounded-full shrink-0">
+              <Check size={9} strokeWidth={2.5} />
+              On
+            </span>
+          )}
         </div>
-        {active && (
-          <span className="flex items-center gap-1 text-[10px] font-mono text-blue-400 shrink-0">
-            <Check size={10} />
-            Active
-          </span>
-        )}
-      </div>
 
-      {/* Action button */}
-      <button
-        onClick={handleAction}
-        disabled={loading || active}
-        className={cn(
-          'flex items-center justify-center gap-2 py-2 text-xs font-mono border transition-colors',
-          active
-            ? 'border-zinc-700 text-zinc-600 cursor-default'
-            : owned || isFree
-            ? 'border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white'
-            : 'border-zinc-700 text-zinc-300 hover:border-zinc-500'
-        )}
-      >
-        {loading ? (
-          <Loader size={12} className="animate-spin" />
-        ) : active ? (
-          <><Check size={12} /> Equipped</>
-        ) : owned || isFree ? (
-          'Equip'
-        ) : (
-          <><Lock size={12} /> ${(skin.priceCents / 100).toFixed(2)}</>
-        )}
-      </button>
+        {/* Action button */}
+        <button
+          onClick={handleAction}
+          disabled={loading || active}
+          className={cn(
+            'w-full flex items-center justify-center gap-1.5 py-2 rounded-pill',
+            'text-xs font-bold transition-all duration-150',
+            active
+              ? 'bg-sage-300 text-sage-600 cursor-default'
+              : owned || isFree
+              ? 'bg-sage-400 text-brown-900 hover:bg-sage-500 shadow-button'
+              : 'bg-brown-900 text-cream-100 hover:bg-brown-700 shadow-button'
+          )}
+        >
+          {loading ? (
+            <Loader size={11} className="animate-spin" />
+          ) : active ? (
+            <><Check size={11} /> Equipped</>
+          ) : owned || isFree ? (
+            'Equip'
+          ) : (
+            <><Lock size={11} /> ${(skin.priceCents / 100).toFixed(2)}</>
+          )}
+        </button>
+      </div>
     </div>
   )
 }
 
-// Pro subscription card
+// ── Pro subscription card ─────────────────────────────────────────────────────
+
 interface ProCardProps {
   isPro: boolean
   onBuy: () => Promise<void>
@@ -135,39 +145,41 @@ export function ProCard({ isPro, onBuy }: ProCardProps) {
   return (
     <div
       className={cn(
-        'flex flex-col border p-4 gap-3 col-span-full transition-colors',
-        isPro
-          ? 'border-blue-600 bg-zinc-900'
-          : 'border-zinc-700 bg-zinc-950 hover:border-zinc-500'
+        'flex items-center justify-between gap-4 p-5 rounded-card col-span-full',
+        'bg-sage-200 shadow-card',
+        isPro && 'ring-2 ring-sage-500'
       )}
     >
       <div className="flex items-center gap-3">
-        <Crown size={16} className="text-blue-400 shrink-0" />
-        <div className="flex-1">
+        <div className="w-10 h-10 rounded-full bg-sage-400 flex items-center justify-center shrink-0">
+          <Crown size={18} className="text-brown-900" />
+        </div>
+        <div>
           <div className="flex items-center gap-2">
-            <p className="font-semibold text-sm text-zinc-100">Pro Account</p>
+            <p className="font-extrabold text-sm text-brown-900">Pro Account</p>
             {isPro && (
-              <span className="text-[10px] font-mono text-blue-400 border border-blue-600 px-1">
+              <span className="text-[10px] font-bold text-sage-600 bg-sage-300 px-2 py-0.5 rounded-full">
                 Active
               </span>
             )}
           </div>
-          <p className="text-xs text-zinc-500 mt-0.5">
-            Unlock all future skins, priority matchmaking, and the AI Coach feature.
+          <p className="text-xs font-medium text-brown-700 mt-0.5">
+            Unlock all skins, priority matchmaking &amp; AI Coach.
           </p>
         </div>
-        {!isPro && (
-          <p className="font-mono text-sm text-zinc-300 shrink-0">$4.99/mo</p>
-        )}
       </div>
 
       {!isPro && (
         <button
           onClick={handleBuy}
           disabled={loading}
-          className="flex items-center justify-center gap-2 py-2 text-xs font-mono border border-blue-600 text-blue-400 hover:bg-blue-600 hover:text-white transition-colors"
+          className="flex items-center gap-1.5 px-5 py-2 rounded-pill bg-brown-900 text-cream-100 text-xs font-bold shadow-button hover:bg-brown-700 transition-colors shrink-0"
         >
-          {loading ? <Loader size={12} className="animate-spin" /> : 'Subscribe — $4.99/mo'}
+          {loading ? (
+            <Loader size={11} className="animate-spin" />
+          ) : (
+            <><Sparkles size={11} /> $4.99 / mo</>
+          )}
         </button>
       )}
     </div>

@@ -1,12 +1,18 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 
+/**
+ * Card — sage-green tile matching the design system (1.png – 5.png).
+ *
+ * Default: bg-sage-200 (#C8E8A8), rounded-card (20px), shadow-card.
+ * Pass className to override for specific surfaces (e.g. cream bg for stat cards).
+ */
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
       className={cn(
-        'rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 shadow-neumorphic text-cream',
+        'bg-sage-200 rounded-card shadow-card text-brown-900',
         className
       )}
       {...props}
@@ -17,7 +23,7 @@ Card.displayName = 'Card'
 
 const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('flex flex-col space-y-1.5 p-6', className)} {...props} />
+    <div ref={ref} className={cn('flex flex-col gap-1.5 p-6', className)} {...props} />
   )
 )
 CardHeader.displayName = 'CardHeader'
@@ -26,7 +32,7 @@ const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTML
   ({ className, ...props }, ref) => (
     <h3
       ref={ref}
-      className={cn('text-2xl font-semibold leading-none tracking-tight text-cream', className)}
+      className={cn('text-xl font-extrabold leading-snug text-brown-900', className)}
       {...props}
     />
   )
@@ -35,7 +41,7 @@ CardTitle.displayName = 'CardTitle'
 
 const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
   ({ className, ...props }, ref) => (
-    <p ref={ref} className={cn('text-sm text-cream/60', className)} {...props} />
+    <p ref={ref} className={cn('text-sm font-medium text-brown-700 leading-relaxed', className)} {...props} />
   )
 )
 CardDescription.displayName = 'CardDescription'

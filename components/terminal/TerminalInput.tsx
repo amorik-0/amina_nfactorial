@@ -11,26 +11,26 @@ interface TerminalInputProps {
 }
 
 export function TerminalInput({ value, onChange, onSubmit, disabled }: TerminalInputProps) {
-  const [history, setHistory] = useState<string[]>([])
+  const [history, setHistory]           = useState<string[]>([])
   const [historyIndex, setHistoryIndex] = useState(-1)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   function handleSubmit() {
     const trimmed = value.trim()
-    if (!trimmed) return
+    if (!trimmed || disabled) return
     setHistory(h => [trimmed, ...h].slice(0, 50))
     setHistoryIndex(-1)
     onSubmit(trimmed)
     onChange('')
+    inputRef.current?.focus()
   }
 
-  function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
       e.preventDefault()
       handleSubmit()
       return
     }
-
     if (e.key === 'ArrowUp') {
       e.preventDefault()
       const next = Math.min(historyIndex + 1, history.length - 1)
@@ -38,7 +38,6 @@ export function TerminalInput({ value, onChange, onSubmit, disabled }: TerminalI
       if (history[next] !== undefined) onChange(history[next])
       return
     }
-
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       const next = Math.max(historyIndex - 1, -1)
@@ -48,40 +47,89 @@ export function TerminalInput({ value, onChange, onSubmit, disabled }: TerminalI
     }
   }
 
+  const canRun = !disabled && !!value.trim()
+
   return (
-    <div className="border-t border-zinc-800 p-3 flex flex-col gap-2">
-      <div className="flex gap-2">
-        <textarea
-          ref={textareaRef}
+    <div
+      style={{
+        borderTop: '1px solid #1e1e30',
+        background: '#06060f',
+        flexShrink: 0,
+      }}
+    >
+      {/* ── Single-line command row ───────────────────────────────────────── */}
+      <div className="flex items-center" style={{ height: 44, paddingLeft: 12, paddingRight: 8 }}>
+        {/* Prompt symbol */}
+        <span
+          className="select-none shrink-0 mr-2"
+          style={{
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+            fontSize: 14,
+            color: '#27c93f',
+            lineHeight: 1,
+          }}
+        >
+          ❯
+        </span>
+
+        {/* Input */}
+        <input
+          ref={inputRef}
+          type="text"
           value={value}
           onChange={e => { onChange(e.target.value); setHistoryIndex(-1) }}
           onKeyDown={handleKeyDown}
           disabled={disabled}
-          rows={2}
           placeholder='board.move("A3", "B4")'
           spellCheck={false}
-          className="
-            flex-1 resize-none bg-zinc-900 border border-zinc-700 text-zinc-100
-            font-mono text-xs p-2 outline-none focus:border-blue-600
-            placeholder:text-zinc-600 disabled:opacity-40
-          "
+          autoComplete="off"
+          autoCapitalize="off"
+          className="flex-1 bg-transparent outline-none disabled:opacity-30"
+          style={{
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+            fontSize: 12,
+            color: '#c8c8e0',
+            caretColor: '#00F0FF',
+          }}
         />
+
+        {/* RUN button */}
         <button
           onClick={handleSubmit}
-          disabled={disabled || !value.trim()}
-          className="
-            px-3 border border-zinc-700 text-zinc-400 hover:text-zinc-100
-            hover:border-zinc-500 disabled:opacity-30 disabled:cursor-not-allowed
-            flex items-center justify-center transition-colors
-          "
+          disabled={!canRun}
+          className="flex items-center gap-1 shrink-0 ml-2"
+          style={{
+            padding: '4px 10px',
+            borderRadius: 6,
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+            fontSize: 10,
+            fontWeight: 700,
+            background: canRun ? '#16a34a' : '#1a1a2e',
+            color: canRun ? '#fff' : '#3a3a56',
+            border: `1px solid ${canRun ? '#15803d' : '#2a2a42'}`,
+            boxShadow: canRun ? '0 0 8px rgba(22,163,74,0.35)' : 'none',
+            cursor: canRun ? 'pointer' : 'not-allowed',
+            transition: 'all 0.15s',
+          }}
           aria-label="Run command"
         >
-          <Play size={14} />
+          <Play size={9} fill="currentColor" />
+          RUN
         </button>
       </div>
-      <p className="text-[10px] font-mono text-zinc-600">
-        ENTER to run&nbsp;&nbsp;|&nbsp;&nbsp;UP / DOWN for history
-      </p>
+
+      {/* ── Hint row ─────────────────────────────────────────────────────── */}
+      <div
+        className="flex items-center gap-4 px-3 pb-2"
+        style={{
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          fontSize: 10,
+          color: '#2a2a42',
+        }}
+      >
+        <span>ENTER — run</span>
+        <span>↑ ↓ — history</span>
+      </div>
     </div>
   )
 }

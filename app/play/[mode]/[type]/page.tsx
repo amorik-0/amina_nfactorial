@@ -139,11 +139,11 @@ function PlayContent() {
   // ── invalid route ─────────────────────────────────────────────────────────
   if (!mode || !type) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50">
+      <div className="min-h-[calc(100vh-52px)] flex items-center justify-center bg-cream-200">
         <div className="text-center">
-          <p className="text-stone-500 font-medium">Invalid game URL.</p>
-          <Link href="/" className="mt-3 inline-block text-sm text-blue-600 underline">
-            Back to home
+          <p className="text-brown-700 font-bold">Invalid game URL.</p>
+          <Link href="/game" className="mt-3 inline-block text-sm text-brown-900 font-extrabold underline">
+            Back to game
           </Link>
         </div>
       </div>
@@ -163,13 +163,13 @@ function PlayContent() {
   // ── CodeCheckers: dark terminal split-screen ────────────────────────────────
   if (mode === 'code') {
     return (
-      <div className="h-screen flex flex-col bg-zinc-950">
+      <div className="h-[calc(100vh-52px)] flex flex-col bg-zinc-950">
         <header className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 shrink-0">
           <Link
-            href="/"
+            href="/game"
             className="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-200 text-xs transition-colors font-mono"
           >
-            <ArrowLeft size={12} /> Home
+            <ArrowLeft size={12} /> Game
           </Link>
 
           <div className="flex items-center gap-3">
@@ -218,7 +218,7 @@ function PlayContent() {
   // ── Classic / Fog: light minimal, board centered ────────────────────────────
   const isFog     = mode === 'fog'
   const isClassic = mode === 'classic'
-  const bgClass   = isFog ? 'bg-slate-100' : isClassic ? 'bg-[#FAF6F0]' : 'bg-stone-50'
+  const bgClass   = 'bg-cream-200'
 
   const redCount   = gameState.pieces.filter(p => p.player === 'red').length
   const blackCount = gameState.pieces.filter(p => p.player === 'black').length
@@ -229,39 +229,30 @@ function PlayContent() {
   const capturedRed   = 12 - redCount     // taken by black
 
   return (
-    <div className={`min-h-screen flex flex-col ${bgClass}`}>
+    <div className={`min-h-[calc(100vh-52px)] flex flex-col ${bgClass}`}>
       {/* Header */}
-      <header
-        className="flex items-center justify-between px-6 py-3 bg-white/80 backdrop-blur-sm"
-        style={{ borderBottom: isClassic ? '1px solid rgba(138,98,72,0.18)' : undefined }}
-        {...(!isClassic && { className: 'flex items-center justify-between px-6 py-3 border-b border-stone-200 bg-white/80 backdrop-blur-sm' })}
-      >
+      <header className="flex items-center justify-between gap-4 px-6 py-3 bg-cream-200 border-b border-brown-100">
         <Link
-          href="/"
-          className="flex items-center gap-1.5 text-sm transition-colors"
-          style={{ color: isClassic ? '#8A7060' : undefined }}
+          href="/game"
+          className="flex items-center gap-1.5 text-sm font-bold text-brown-700 hover:text-brown-900 transition-colors"
         >
           <ArrowLeft size={14} />{' '}
-          <span className={isClassic ? '' : 'text-stone-400 hover:text-stone-700'}>Home</span>
+          <span>Game</span>
         </Link>
 
-        <div className="flex items-center gap-3">
-          <span
-            className="text-[11px] font-medium uppercase tracking-widest"
-            style={{ color: isClassic ? '#8A7060' : undefined }}
-          >
-            {!isClassic && <span className="text-stone-400">{MODE_LABELS[mode]} · {type}</span>}
-            {isClassic && <>{MODE_LABELS[mode]} · {type}</>}
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <span className="rounded-pill bg-sage-300 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-brown-900">
+            {MODE_LABELS[mode]} · {type}
           </span>
 
           {type === 'multiplayer' && roomId && (
             <>
-              <span className="text-xs text-stone-400">Room: {roomId.slice(0, 8)}</span>
-              <button onClick={copyRoomLink} className="flex items-center gap-1 text-xs text-stone-400 hover:text-stone-700">
-                {copied ? <Check size={11} className="text-blue-500" /> : <Copy size={11} />}
+              <span className="text-xs font-bold text-brown-500">Room: {roomId.slice(0, 8)}</span>
+              <button onClick={copyRoomLink} className="flex items-center gap-1 text-xs font-bold text-brown-500 hover:text-brown-900">
+                {copied ? <Check size={11} className="text-sage-600" /> : <Copy size={11} />}
                 {copied ? 'Copied' : 'Copy link'}
               </button>
-              <span className={`flex items-center gap-1 text-xs ${opponentJoined ? 'text-blue-600' : 'text-stone-400'}`}>
+              <span className={`flex items-center gap-1 text-xs font-bold ${opponentJoined ? 'text-sage-600' : 'text-brown-500'}`}>
                 {opponentJoined ? <Wifi size={11} /> : <WifiOff size={11} />}
                 {opponentJoined ? 'Connected' : 'Waiting'}
               </span>
@@ -273,18 +264,17 @@ function PlayContent() {
 
         <button
           onClick={resetGame}
-          className="flex items-center gap-1.5 text-sm transition-colors"
-          style={{ color: isClassic ? '#8A7060' : undefined }}
+          className="flex items-center gap-1.5 rounded-pill bg-sage-400 px-4 py-2 text-sm font-extrabold text-brown-900 shadow-button hover:bg-sage-500 transition-colors"
         >
           <RefreshCcw size={14} />{' '}
-          <span className={isClassic ? '' : 'text-stone-400 hover:text-stone-700'}>New game</span>
+          <span>New game</span>
         </button>
       </header>
 
       {/* Board area */}
       <main className="flex-1 flex flex-col items-center justify-center gap-5 px-4 py-10">
         {isFog && (
-          <div className="flex items-center gap-4 text-[11px] text-stone-400">
+          <div className="flex items-center gap-4 text-[11px] font-bold text-brown-500">
             <span className="flex items-center gap-1.5">
               <span className="inline-block w-3 h-3 rounded-sm bg-slate-300" /> Fog
             </span>
@@ -307,12 +297,12 @@ function PlayContent() {
               {/* Black top */}
               <div
                 className="transition-all duration-700"
-                style={{ height: `${blackPct}%`, backgroundColor: '#4A4A4A' }}
+                style={{ height: `${blackPct}%`, background: 'radial-gradient(circle at 45% 28%, #7A5540, #5A3A28, #3E2218)' }}
               />
               {/* Red bottom */}
               <div
                 className="flex-1 transition-all duration-700"
-                style={{ backgroundColor: '#C4785C' }}
+                style={{ background: 'radial-gradient(circle at 38% 30%, #FFF0F4 0%, #FFE0E5 5%, #FFC2E8 15%)' }}
               />
             </div>
           )}
@@ -327,7 +317,7 @@ function PlayContent() {
                   <div
                     key={i}
                     className="w-4 h-4 rounded-full border"
-                    style={{ backgroundColor: '#4A4A4A', borderColor: '#2A2A2A' }}
+                    style={{ background: 'radial-gradient(circle at 45% 28%, #7A5540, #5A3A28, #3E2218)', borderColor: '#2E1810' }}
                   />
                 ))}
               </div>
@@ -338,7 +328,7 @@ function PlayContent() {
                   <div
                     key={i}
                     className="w-4 h-4 rounded-full border"
-                    style={{ backgroundColor: '#C4785C', borderColor: '#9E5C42' }}
+                    style={{ background: 'radial-gradient(circle at 38% 30%, #FFF0F4 0%, #FFE0E5 5%, #FFC2E8 15%)', borderColor: '#B87888' }}
                   />
                 ))}
               </div>
@@ -350,22 +340,22 @@ function PlayContent() {
 
         {gameState.winner && (
           <div
-            className="mt-2 px-6 py-4 bg-white text-center"
+            className="mt-2 px-6 py-4 bg-sage-200 text-center"
             style={isClassic
-              ? { border: '1px solid rgba(138,98,72,0.25)', borderRadius: '12px', boxShadow: '0 2px 16px rgba(0,0,0,0.07)' }
-              : { border: '1px solid #e7e5e4', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }
+              ? { border: '1px solid rgba(138,98,72,0.25)', borderRadius: '20px', boxShadow: '0 2px 12px rgba(58,46,10,0.08)' }
+              : { border: '1px solid rgba(190,176,144,0.7)', borderRadius: '20px', boxShadow: '0 2px 12px rgba(58,46,10,0.08)' }
             }
           >
             <p
               className="font-semibold text-sm"
               style={{ color: isClassic ? '#5A4030' : undefined }}
             >
-              {gameState.winner === 'red' ? (isClassic ? 'Terracotta' : 'Red') : (isClassic ? 'Graphite' : 'Black')} wins!
+              {gameState.winner === 'red' ? (isClassic ? 'Rose Quartz' : 'Red') : (isClassic ? 'Walnut' : 'Black')} wins!
             </p>
             <button
               onClick={resetGame}
-              className="mt-2 text-xs underline"
-              style={{ color: isClassic ? '#C4785C' : '#3b82f6' }}
+              className="mt-2 text-xs font-extrabold underline"
+              style={{ color: isClassic ? '#C88898' : '#3A2E0A' }}
             >
               Play again
             </button>
@@ -389,16 +379,16 @@ function StatusBadge({
   dark: boolean
   isClassic?: boolean
 }) {
-  const base   = dark ? 'font-mono text-xs text-zinc-400' : 'text-sm'
-  const accent = dark ? 'text-blue-400' : isClassic ? '' : 'text-blue-600'
+  const base   = dark ? 'font-mono text-xs text-zinc-400' : 'text-sm font-bold'
+  const accent = dark ? 'text-blue-400' : isClassic ? '' : 'text-brown-700'
 
-  const redLabel   = isClassic ? 'Terracotta' : 'Red'
-  const blackLabel = isClassic ? 'Graphite'   : 'Black'
+  const redLabel   = isClassic ? 'Rose Quartz' : 'Red'
+  const blackLabel = isClassic ? 'Walnut'     : 'Black'
 
   if (gameState.winner) return (
     <span
       className={`${base} ${accent}`}
-      style={isClassic ? { color: gameState.winner === 'red' ? '#C4785C' : '#4A4A4A' } : undefined}
+      style={isClassic ? { color: gameState.winner === 'red' ? '#C88898' : '#5A3A28' } : undefined}
     >
       {gameState.winner === 'red' ? redLabel : blackLabel} wins
     </span>
@@ -412,8 +402,8 @@ function StatusBadge({
     <span
       className={base}
       style={isClassic
-        ? { color: gameState.currentPlayer === 'red' ? '#C4785C' : '#4A4A4A', fontWeight: 500 }
-        : { color: '#78716c' }
+        ? { color: gameState.currentPlayer === 'red' ? '#C88898' : '#5A3A28', fontWeight: 500 }
+        : { color: '#5C5228' }
       }
     >
       {gameState.currentPlayer === 'red' ? redLabel : blackLabel} to move
@@ -431,7 +421,7 @@ function PieceCount({
   const red   = gameState.pieces.filter(p => p.player === 'red').length
   const black = gameState.pieces.filter(p => p.player === 'black').length
   return (
-    <p className={dark ? 'font-mono text-[10px] text-zinc-600' : 'text-xs text-stone-400'}>
+    <p className={dark ? 'font-mono text-[10px] text-zinc-600' : 'text-xs font-bold text-brown-500'}>
       Red {red} pieces &nbsp;·&nbsp; Black {black} pieces
     </p>
   )
@@ -441,8 +431,8 @@ function PieceCount({
 
 function LoadingScreen() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-stone-50">
-      <Loader size={20} className="animate-spin text-stone-300" />
+    <div className="min-h-[calc(100vh-52px)] flex items-center justify-center bg-cream-200">
+      <Loader size={20} className="animate-spin text-brown-500" />
     </div>
   )
 }

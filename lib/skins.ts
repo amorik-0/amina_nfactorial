@@ -27,23 +27,25 @@ export interface SkinConfig {
 
 // ─── warm classic skin (auto-applied when gameMode === 'classic' + default) ──
 
+// Green & pink pieces + dark/cream board matching the design
 export const WARM_CLASSIC_SKIN: SkinConfig = {
   id: 'classic-warm',
-  name: 'Classic Warm',
-  description: 'Terracotta pieces on a warm felt board.',
+  name: 'Fast Food',
+  description: 'Green & pink pieces on a dark/cream board.',
   priceCents: 0,
   stripeProductId: '',
-  darkCell:    'bg-[#A07050]',
-  lightCell:   'bg-[#F0E8DC]',
+  darkCell:    'bg-[#424040]',   // near black — design spec
+  lightCell:   'bg-[#FFFDE1]',  // cream — design spec
   fogCell:     'bg-stone-900',
-  boardBorder: 'border-[#8A6248] shadow-[0_4px_24px_rgba(0,0,0,0.10)]',
-  redPiece:    'bg-[#C4785C] border-[#9E5C42] shadow-[inset_0_2px_5px_rgba(255,255,255,0.28),0_2px_5px_rgba(0,0,0,0.25)]',
-  blackPiece:  'bg-[#4A4A4A] border-[#2A2A2A] shadow-[inset_0_1px_4px_rgba(255,255,255,0.12),0_2px_5px_rgba(0,0,0,0.35)]',
-  redCrown:    'text-[#FFE4D6]',
-  blackCrown:  'text-zinc-300',
-  labelText:   'text-[#8A7060]',
-  validMoveDot: 'bg-amber-300/50 ring-1 ring-amber-400/30',
-  selectionRing: 'ring-amber-500/80',
+  boardBorder: 'border-[#C8C0A0] shadow-[0_6px_32px_rgba(0,0,0,0.12)]',
+  // Base bg — real gradient applied via inline style in Piece.tsx
+  redPiece:    'bg-[#FFC2E8] border-[#E89BC8]',
+  blackPiece:  'bg-[#A9DB94] border-[#88BD70]',
+  redCrown:    'text-[#D4A847]',
+  blackCrown:  'text-[#D4A847]',
+  labelText:   'text-[#5A5030]',
+  validMoveDot: 'bg-green-300/50 ring-1 ring-green-400/30',
+  selectionRing: 'ring-green-500/80',
 }
 
 // ─── purchasable skins ─────────────────────────────────────────────────────────
@@ -51,24 +53,24 @@ export const WARM_CLASSIC_SKIN: SkinConfig = {
 export const SKINS: Record<string, SkinConfig> = {
   default: {
     id: 'default',
-    name: 'Classic',
-    description: 'The default monochromatic board.',
+    name: 'Fast Food',
+    description: 'Burgers and shawarma — the tastiest set of checkers.',
     priceCents: 0,
     stripeProductId: '',
-    darkCell: 'bg-zinc-700',
-    lightCell: 'bg-zinc-200',
+    darkCell: 'bg-[#424040]',
+    lightCell: 'bg-[#FFFDE1]',
     fogCell: 'bg-zinc-900',
-    boardBorder: 'border-zinc-700 shadow-[4px_4px_0px_#000]',
-    redPiece: 'bg-white border-zinc-400',
-    blackPiece: 'bg-zinc-950 border-zinc-600',
-    redCrown: 'text-zinc-800',
-    blackCrown: 'text-zinc-300',
-    labelText: 'text-zinc-500',
+    boardBorder: 'border-[#C8C0A0] shadow-[4px_4px_0px_rgba(0,0,0,0.15)]',
+    redPiece: 'bg-[#FFC2E8] border-[#E89BC8]',
+    blackPiece: 'bg-[#A9DB94] border-[#88BD70]',
+    redCrown: 'text-[#D4A847]',
+    blackCrown: 'text-[#D4A847]',
+    labelText: 'text-[#5A5030]',
   },
   wood: {
     id: 'wood',
-    name: 'Classic Wood',
-    description: 'Warm walnut board with classic pieces.',
+    name: 'Street art',
+    description: 'Bold graffiti vibes on a brick-wall board.',
     priceCents: 299,
     stripeProductId: process.env.STRIPE_PRODUCT_SKIN_WOOD ?? 'prod_wood',
     darkCell: 'bg-amber-800',
@@ -83,8 +85,8 @@ export const SKINS: Record<string, SkinConfig> = {
   },
   midnight: {
     id: 'midnight',
-    name: 'Midnight',
-    description: 'Deep indigo board for late-night sessions.',
+    name: 'Pets',
+    description: 'Paw-print pieces for cat & dog lovers.',
     priceCents: 299,
     stripeProductId: process.env.STRIPE_PRODUCT_SKIN_MIDNIGHT ?? 'prod_midnight',
     darkCell: 'bg-indigo-900',
@@ -99,7 +101,7 @@ export const SKINS: Record<string, SkinConfig> = {
   },
   neon: {
     id: 'neon',
-    name: 'Neon',
+    name: 'Just the way you are',
     description: 'High-contrast cyberpunk aesthetic.',
     priceCents: 299,
     stripeProductId: process.env.STRIPE_PRODUCT_SKIN_NEON ?? 'prod_neon',

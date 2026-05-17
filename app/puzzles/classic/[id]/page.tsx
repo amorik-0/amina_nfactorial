@@ -7,21 +7,22 @@ import { PUZZLES, buildBoard, DIFFICULTY_COLORS, type Puzzle } from '@/lib/puzzl
 import { getValidMoves, applyMove } from '@/lib/game/engine'
 import type { Move, Piece } from '@/lib/game/types'
 
-// ─── warm terracotta palette ──────────────────────────────────────────────────
+// ─── rose quartz / walnut palette ────────────────────────────────────────────
 
 const W = {
-  darkCell:    '#A07050',
-  lightCell:   '#F0E8DC',
-  redPiece:    { bg: '#C4785C', border: '#9E5C42' },
-  blackPiece:  { bg: '#4A4A4A', border: '#2A2A2A' },
-  crownZone:   'rgba(251,191,36,0.18)',
-  crownRing:   'rgba(251,191,36,0.45)',
-  selectRing:  'rgba(217,119,6,0.75)',
-  validDot:    'rgba(251,191,36,0.45)',
-  captureDot:  'rgba(196,120,92,0.65)',
-  boardBorder: '#8A6248',
-  label:       '#8A7060',
-  bg:          '#FAF6F0',
+  darkCell:    '#8B6245',   // mocha brown
+  lightCell:   '#F5EFE6',  // soft cream
+  crownZone:   'rgba(212,168,71,0.14)',
+  crownRing:   'rgba(212,168,71,0.40)',
+  selectRing:  'rgba(184,96,80,0.75)',
+  validDot:    'rgba(212,168,71,0.50)',
+  captureDot:  'rgba(184,96,80,0.65)',
+  boardBorder: '#7A5030',
+  label:       '#7A6050',
+  bg:          '#F9F6F0',
+  // piece base colors (gradient applied via inline style)
+  redPiece:    { bg: '#E8C0C4', border: '#B87888' },
+  blackPiece:  { bg: '#6B4E3D', border: '#2E1810' },
 }
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -34,28 +35,64 @@ const COLS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 const ROWS = [8, 7, 6, 5, 4, 3, 2, 1]
 const CROWN_COLS = new Set([1, 3, 5, 7])
 
+// ── Rose quartz gradient (player / red) ───────────────────────────────────────
+const ROSE_QUARTZ_STYLE: React.CSSProperties = {
+  background:  'radial-gradient(circle at 38% 30%, #FFF0F4 0%, #FFE0E5 5%, #FFC2E8 15%)',
+  borderColor: '#B87888',
+  boxShadow: [
+    'inset 0 2px 7px rgba(255,255,255,0.62)',
+    'inset 0 -2px 5px rgba(120,40,60,0.22)',
+    '0 4px 14px rgba(0,0,0,0.18)',
+  ].join(','),
+}
+const ROSE_QUARTZ_SELECTED: React.CSSProperties = {
+  ...ROSE_QUARTZ_STYLE,
+  transform: 'scale(1.12)',
+  boxShadow: [
+    'inset 0 2px 7px rgba(255,255,255,0.62)',
+    'inset 0 -2px 5px rgba(120,40,60,0.22)',
+    '0 6px 20px rgba(0,0,0,0.22)',
+  ].join(','),
+}
+
+// ── Walnut wood gradient (enemy / black) ─────────────────────────────────────
+const WALNUT_STYLE: React.CSSProperties = {
+  background:  'radial-gradient(circle at 45% 28%, #7A5540, #5A3A28, #3E2218)',
+  borderColor: '#2E1810',
+  boxShadow: [
+    'inset 0 3px 7px rgba(0,0,0,0.52)',
+    'inset 0 -1px 3px rgba(200,130,60,0.10)',
+    '0 4px 12px rgba(0,0,0,0.30)',
+  ].join(','),
+}
+const WALNUT_SELECTED: React.CSSProperties = {
+  ...WALNUT_STYLE,
+  transform: 'scale(1.12)',
+  boxShadow: [
+    'inset 0 3px 7px rgba(0,0,0,0.52)',
+    'inset 0 -1px 3px rgba(200,130,60,0.10)',
+    '0 6px 18px rgba(0,0,0,0.38)',
+  ].join(','),
+}
+
 function WarmPiece({ piece, isSelected }: { piece: Piece; isSelected: boolean }) {
   const isRed  = piece.player === 'red'
   const isKing = piece.type === 'king'
-  const p = isRed ? W.redPiece : W.blackPiece
+
+  const inlineStyle = isRed
+    ? (isSelected ? ROSE_QUARTZ_SELECTED : ROSE_QUARTZ_STYLE)
+    : (isSelected ? WALNUT_SELECTED      : WALNUT_STYLE)
 
   return (
     <div
-      className="w-8 h-8 rounded-full border-2 flex items-center justify-center select-none transition-transform duration-150"
-      style={{
-        backgroundColor: p.bg,
-        borderColor: p.border,
-        boxShadow: isRed
-          ? 'inset 0 2px 5px rgba(255,255,255,0.28), 0 2px 5px rgba(0,0,0,0.22)'
-          : 'inset 0 1px 4px rgba(255,255,255,0.12), 0 2px 5px rgba(0,0,0,0.30)',
-        transform: isSelected ? 'scale(1.1)' : 'scale(1)',
-      }}
+      className="w-8 h-8 rounded-full border-2 flex items-center justify-center select-none transition-all duration-150"
+      style={inlineStyle}
     >
       {isKing && (
         <Crown
           size={12}
           strokeWidth={2}
-          style={{ color: isRed ? '#FFE4D6' : '#d1d1d1' }}
+          style={{ color: '#D4A847', filter: 'drop-shadow(0 0 3px rgba(212,168,71,0.55))' }}
         />
       )}
     </div>
@@ -142,7 +179,7 @@ function WarmBoard({
       }}
     >
       {/* Top labels */}
-      <div className="flex" style={{ backgroundColor: '#EDE3D8' }}>
+      <div className="flex" style={{ backgroundColor: '#E8DDD0' }}>
         <div className="w-6" />
         {COLS.map(c => (
           <div key={c} className="w-10 text-center py-1 text-[10px] font-medium" style={{ color: W.label }}>{c}</div>
@@ -152,7 +189,7 @@ function WarmBoard({
 
       {board.map((row, r) => (
         <div key={r} className="flex">
-          <div className="w-6 flex items-center justify-center text-[10px] font-medium" style={{ color: W.label, backgroundColor: '#EDE3D8' }}>
+          <div className="w-6 flex items-center justify-center text-[10px] font-medium" style={{ color: W.label, backgroundColor: '#E8DDD0' }}>
             {ROWS[r]}
           </div>
           {row.map((cell, c) => {
@@ -179,14 +216,14 @@ function WarmBoard({
               />
             )
           })}
-          <div className="w-6 flex items-center justify-center text-[10px] font-medium" style={{ color: W.label, backgroundColor: '#EDE3D8' }}>
+          <div className="w-6 flex items-center justify-center text-[10px] font-medium" style={{ color: W.label, backgroundColor: '#E8DDD0' }}>
             {ROWS[r]}
           </div>
         </div>
       ))}
 
       {/* Bottom labels */}
-      <div className="flex" style={{ backgroundColor: '#EDE3D8' }}>
+      <div className="flex" style={{ backgroundColor: '#E8DDD0' }}>
         <div className="w-6" />
         {COLS.map(c => (
           <div key={c} className="w-10 text-center py-1 text-[10px] font-medium" style={{ color: W.label }}>{c}</div>

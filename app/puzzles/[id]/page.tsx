@@ -37,12 +37,12 @@ function highlightLine(text: string, type: LogType) {
       return (
         <span>
           <span className="text-zinc-600 select-none">&gt; </span>
-          <span className="text-cyan-400">{m[1]}</span>
-          <span className="text-yellow-400">{m[2]}</span>
+          <span style={{ color: '#00F0FF' }}>{m[1]}</span>
+          <span style={{ color: '#FF003C' }}>{m[2]}</span>
           <span className="text-zinc-500">(</span>
-          <span className="text-orange-400">{m[3]}</span>
+          <span className="text-white">{m[3]}</span>
           <span className="text-zinc-500">, </span>
-          <span className="text-orange-400">{m[4]}</span>
+          <span className="text-white">{m[4]}</span>
           <span className="text-zinc-500">)</span>
           {m[5] && <span className="text-zinc-500">{m[5]}</span>}
         </span>
@@ -260,15 +260,15 @@ function PuzzlePlay({ puzzle }: { puzzle: Puzzle }) {
           {/* Legend */}
           <div className="flex items-center gap-5 font-mono text-[10px] text-zinc-700">
             <span className="flex items-center gap-1.5">
-              <span className="inline-block w-3 h-3 rounded-full bg-red-600 shadow-[0_0_6px_rgba(239,68,68,0.7)]" />
+              <span className="inline-block w-3 h-3 rounded-full" style={{ background: 'radial-gradient(circle at 38% 30%, #2a2a38, #111118)', boxShadow: '0 0 0 1.5px rgba(0,240,255,0.65), 0 0 6px rgba(0,240,255,0.35)' }} />
               Red (you)
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="inline-block w-3 h-3 rounded-full bg-[#1e1e2e] border border-[#3a3a5c]" />
+              <span className="inline-block w-3 h-3 rounded-full" style={{ background: 'radial-gradient(circle at 38% 30%, #2a2a38, #111118)', boxShadow: '0 0 0 1.5px rgba(255,0,60,0.65), 0 0 6px rgba(255,0,60,0.35)' }} />
               Black (obstacle)
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="inline-block w-3 h-1 bg-amber-500/50" />
+              <span className="inline-block w-3 h-1" style={{ background: 'rgba(251,191,36,0.5)' }} />
               Crown zone
             </span>
           </div>
