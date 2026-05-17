@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { getStripe, STRIPE_PRICES } from '@/lib/stripe'
 import { createClient } from '@/lib/supabase/server'
 import { getSkin } from '@/lib/skins'
+
+export const runtime = 'nodejs'
 
 export async function POST(req: NextRequest) {
   try {
@@ -58,8 +61,12 @@ export async function POST(req: NextRequest) {
       client_reference_id: user.id,
     })
 
-    // Insert pending purchase row (webhook will mark it completed)
-    await supabase.from('purchases').insert({
+    // Use service role to bypass RLS — purchases table only allows service role writes
+    const serviceSupabase = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+    await serviceSupabase.from('purchases').insert({
       user_id: user.id,
       stripe_session_id: session.id,
       product_type: isPro ? 'pro' : 'skin',

@@ -156,29 +156,82 @@ function ModeCard({ mode, onSelect }: ModeCardProps) {
       )}
 
       {mode === 'learning' && (
-        <div className="absolute inset-0 flex items-center justify-center p-6">
-          <img
-            src="/canva/red-flag.png"
-            alt=""
-            className="h-28 w-28 object-contain opacity-95 transition-transform duration-200 group-hover:scale-105"
-          />
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-8">
+          {(['Easy', 'Normal', 'Hard'] as const).map((level, i) => {
+            const widths  = ['55%', '75%', '95%']
+            const colors  = ['#A9DB94', '#F5C842', '#E87A6A']
+            const borders = ['#88BD70', '#C9A830', '#C45A50']
+            return (
+              <div key={level} className="w-full flex items-center gap-3">
+                <span
+                  className="text-[11px] font-extrabold w-12 shrink-0"
+                  style={{ color: '#5A4030' }}
+                >
+                  {level}
+                </span>
+                <div className="flex-1 rounded-full overflow-hidden" style={{ height: 14, background: 'rgba(0,0,0,0.08)' }}>
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: widths[i],
+                      background: colors[i],
+                      border: `1.5px solid ${borders[i]}`,
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+                    }}
+                  />
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 
-      {mode === 'fog' && (
-        <div className="absolute inset-0 grid grid-cols-4 grid-rows-4 gap-1 p-8 opacity-90">
-          {Array.from({ length: 16 }).map((_, i) => (
-            <span
-              key={i}
-              className={
-                i === 5 || i === 6 || i === 9
-                  ? 'rounded-md bg-cream-100'
-                  : 'rounded-md bg-brown-900/20'
-              }
-            />
-          ))}
-        </div>
-      )}
+      {mode === 'fog' && (() => {
+        const cs = 30
+        // board: 4 rows × 8 cols; rows 0–1 = fog, rows 2–3 = visible with pieces
+        const pieces: Record<string, 'p' | 'g'> = {
+          '2-1': 'g', '2-3': 'g', '2-5': 'g', '2-7': 'g',
+          '3-0': 'p', '3-2': 'p', '3-4': 'p', '3-6': 'p',
+        }
+        return (
+          <div className="absolute inset-0 flex items-center justify-center p-3">
+            <div style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.18)' }}>
+              {[0, 1, 2, 3].map(r => (
+                <div key={r} className="flex">
+                  {[0, 1, 2, 3, 4, 5, 6, 7].map(c => {
+                    const isDark = (r + c) % 2 === 1
+                    const fog = r < 2
+                    const piece = pieces[`${r}-${c}`]
+                    return (
+                      <div
+                        key={c}
+                        style={{
+                          width: cs, height: cs, flexShrink: 0,
+                          background: fog
+                            ? (isDark ? '#2A2828' : '#3A3838')
+                            : (isDark ? '#424040' : '#FFFDE1'),
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}
+                      >
+                        {!fog && piece === 'g' && (
+                          <div style={{ width: cs * 0.75, height: cs * 0.75, borderRadius: '50%', background: '#88BD70', boxShadow: '0 1px 4px rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{ width: '65%', height: '65%', borderRadius: '50%', background: 'radial-gradient(circle at 35% 28%, #E8F5D8, #A9DB94)' }} />
+                          </div>
+                        )}
+                        {!fog && piece === 'p' && (
+                          <div style={{ width: cs * 0.75, height: cs * 0.75, borderRadius: '50%', background: '#E89BC8', boxShadow: '0 1px 4px rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{ width: '65%', height: '65%', borderRadius: '50%', background: 'radial-gradient(circle at 35% 28%, #FFF0F4, #FFC2E8)' }} />
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
 
       {mode === 'code' && (
         <div className="absolute inset-0 flex items-center justify-center p-7">
@@ -189,8 +242,9 @@ function ModeCard({ mode, onSelect }: ModeCardProps) {
               <span className="h-2 w-2 rounded-full bg-sage-400" />
             </div>
             <div className="space-y-2 font-mono text-[10px]">
-              <p className="text-cyan-300">board<span className="text-pink-400">.move</span><span className="text-zinc-500">(</span><span className="text-white">"A3"</span><span className="text-zinc-500">, </span><span className="text-white">"B4"</span><span className="text-zinc-500">)</span></p>
-              <p className="text-zinc-600">Red to move</p>
+              <p><span className="text-cyan-300">board</span><span className="text-pink-400">.move</span><span className="text-zinc-500">(</span><span className="text-amber-200">"A3"</span><span className="text-zinc-500">, </span><span className="text-amber-200">"B4"</span><span className="text-zinc-500">)</span></p>
+              <p><span className="text-emerald-400">✓</span><span className="text-zinc-400"> Moved A3 → B4</span></p>
+              <p className="text-zinc-600">Black to move_</p>
             </div>
           </div>
         </div>

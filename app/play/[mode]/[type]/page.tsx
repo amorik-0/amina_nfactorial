@@ -11,6 +11,18 @@ import { createClient } from '@/lib/supabase/client'
 import { createSnapshot, makeParticipantId, roleForParticipant, type GameSnapshot } from '@/lib/game/stateSnapshot'
 import type { GameMode, GameType, Player, PlayerRole } from '@/lib/game/types'
 
+async function reportGameFinish(roomId: string, result: 'red' | 'black' | 'draw') {
+  try {
+    await fetch('/api/game/finish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roomId, result }),
+    })
+  } catch {
+    // Non-critical — stats may miss this game but gameplay is unaffected
+  }
+}
+
 const VALID_MODES = new Set<GameMode>(['classic', 'fog', 'code'])
 const VALID_TYPES = new Set<GameType>(['local', 'ai', 'multiplayer'])
 
@@ -91,9 +103,13 @@ function PlayContent() {
       let disposed = false
 
       async function joinRoom() {
+        // Get current user ID to link profile to game room for stat tracking
+        const { data: { user } } = await supabase.auth.getUser()
+        const authUserId = user?.id ?? null
+
         let { data: row } = await supabase
           .from('games')
-          .select('board_state')
+          .select('board_state, player_red, player_black')
           .eq('room_id', actualRoomId)
           .maybeSingle()
 
@@ -108,6 +124,7 @@ function PlayContent() {
             room_id: actualRoomId,
             status: 'waiting',
             board_state: snapshot,
+            ...(authUserId ? { player_red: authUserId } : {}),
           })
 
           if (error) {
@@ -148,6 +165,18 @@ function PlayContent() {
           : null)
         loadGameState(snapshot.game)
         lastSavedMoveCountRef.current = snapshot.game.moveHistory.length
+
+        // Save this player's auth user ID in the games row for stat tracking
+        if (authUserId && (role === 'red' || role === 'black')) {
+          const col = role === 'red' ? 'player_red' : 'player_black'
+          // Only update if the column is still null (don't overwrite a different user)
+          if (!row?.[col as 'player_red' | 'player_black']) {
+            await supabase
+              .from('games')
+              .update({ [col]: authUserId })
+              .eq('room_id', actualRoomId)
+          }
+        }
 
         await saveSnapshot(snapshot)
 
@@ -259,6 +288,16 @@ function PlayContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [moveCount])
 
+  // Record game result when a winner is determined by normal play (not resign/draw)
+  const winnerValue = gameState.winner
+  useEffect(() => {
+    if (type !== 'multiplayer' || !roomId || !winnerValue || myPlayer === 'spectator' || !myPlayer) return
+    // Only the winning player calls the finish endpoint to avoid double-counting
+    if (myPlayer !== winnerValue) return
+    reportGameFinish(roomId, winnerValue)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [winnerValue])
+
   useEffect(() => {
     if (type !== 'local' || mode !== 'fog') return
     if (moveCount <= lastLocalFogMoveRef.current) {
@@ -335,6 +374,7 @@ function PlayContent() {
       event: 'game',
       payload: { type: 'result', from: participantIdRef.current, snapshot } satisfies MultiplayerPayload,
     })
+    await reportGameFinish(roomId, winner)
   }
 
   async function handleDraw() {
@@ -358,6 +398,7 @@ function PlayContent() {
         event: 'game',
         payload: { type: 'result', from: participantId, snapshot } satisfies MultiplayerPayload,
       })
+      await reportGameFinish(roomId, 'draw')
       return
     }
 
