@@ -14,9 +14,7 @@ const PLAY_TYPES: Record<ModeKey, { label: string; href: string }[]> = {
     { label: 'AI bot',         href: '/play/classic/ai' },
   ],
   learning: [
-    { label: 'Easy AI',   href: '/play/classic/ai' },
-    { label: 'Normal AI', href: '/play/classic/ai' },
-    { label: 'Hard AI',   href: '/play/classic/ai' },
+    { label: 'Start tutorial', href: '/play/learn' },
   ],
   fog: [
     { label: 'Friend offline', href: '/play/fog/local' },
@@ -307,24 +305,34 @@ function PlayTypeSelector({
       <h1 className="text-4xl font-extrabold text-brown-900 mb-2">
         {MODE_LABEL[mode]}
       </h1>
-      <p className="text-brown-700 font-medium mb-6">Play with:</p>
 
-      <div className="mb-8 inline-flex rounded-pill bg-sage-200 p-1 shadow-card-sm">
-        {(['red', 'black'] as const).map(player => (
-          <button
-            key={player}
-            onClick={() => setColor(player)}
-            className={[
-              'rounded-pill px-4 py-2 text-xs font-extrabold transition-colors',
-              color === player
-                ? 'bg-sage-400 text-brown-900 shadow-button'
-                : 'text-brown-700 hover:bg-sage-300',
-            ].join(' ')}
-          >
-            {player === 'red' ? 'Red' : 'Black'}
-          </button>
-        ))}
-      </div>
+      {mode !== 'learning' && (
+        <>
+          <p className="text-brown-700 font-medium mb-6">Play with:</p>
+          <div className="mb-8 inline-flex rounded-pill bg-sage-200 p-1 shadow-card-sm">
+            {(['red', 'black'] as const).map(player => (
+              <button
+                key={player}
+                onClick={() => setColor(player)}
+                className={[
+                  'rounded-pill px-4 py-2 text-xs font-extrabold transition-colors',
+                  color === player
+                    ? 'bg-sage-400 text-brown-900 shadow-button'
+                    : 'text-brown-700 hover:bg-sage-300',
+                ].join(' ')}
+              >
+                {player === 'red' ? 'Red' : 'Black'}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {mode === 'learning' && (
+        <p className="text-brown-700 font-medium mb-8">
+          Learn the rules step-by-step through 4 interactive lessons.
+        </p>
+      )}
 
       <div className="flex flex-col gap-4 max-w-md mx-auto">
         {options.map(opt => (
