@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
+import Link from 'next/link'
 import type { GameMode, GameType } from '@/lib/game/types'
 
 // ─── data ──────────────────────────────────────────────────────────────────────
@@ -41,7 +42,7 @@ const MODES: {
     id: 'code',
     label: 'CodeCheckers',
     tagline: 'Control the board with code.',
-    description: 'Fog of War + terminal input. Type board.move("A3","B4") to play.',
+    description: 'Terminal input mode. Type board.move("A3","B4") to play.',
     accent: 'text-zinc-100',
     bg: 'bg-zinc-900 hover:bg-zinc-800',
     border: 'border-zinc-700 hover:border-zinc-600',
@@ -74,31 +75,21 @@ export default function HomePage() {
     }
   }
 
-  const isDarkMode = selected === 'code'
-
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* Nav */}
       <header className="px-8 py-5 flex items-center justify-between border-b border-stone-100">
         <span className="text-sm font-semibold tracking-tight text-stone-900">Checkers</span>
-        <div className="flex items-center gap-4">
-          <a
-            href="/puzzles"
-            className="text-xs text-stone-400 hover:text-stone-700 transition-colors"
-          >
-            Puzzles
-          </a>
-          <a
-            href="/shop"
-            className="text-xs text-stone-400 hover:text-stone-700 transition-colors"
-          >
-            Shop
-          </a>
-        </div>
+        <a
+          href="/shop"
+          className="text-xs text-stone-400 hover:text-stone-700 transition-colors"
+        >
+          Shop
+        </a>
       </header>
 
       {/* Hero */}
-      <main className="flex-1 flex flex-col items-center justify-center px-6 py-16 gap-12">
+      <main className="flex-1 flex flex-col items-center justify-center px-6 py-16 gap-10">
         <motion.div
           className="text-center"
           initial={{ opacity: 0, y: 16 }}
@@ -113,57 +104,111 @@ export default function HomePage() {
           </p>
         </motion.div>
 
-        {/* Mode cards */}
+        {/* ── 3-column grid: mode cards row + puzzle shortcuts row ── */}
         <motion.div
-          className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-2xl"
+          className="w-full max-w-2xl"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, delay: 0.1, ease: 'easeOut' }}
         >
-          {MODES.map(m => {
-            const isActive = selected === m.id
-            return (
-              <motion.button
-                key={m.id}
-                onClick={() => handleSelect(m.id)}
-                whileHover={{ y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                transition={{ duration: 0.15 }}
-                className={`
-                  relative text-left p-5 border rounded-xl transition-colors duration-200
-                  ${m.bg} ${m.border}
-                  ${isActive ? 'ring-2 ring-blue-500 ring-offset-2' : ''}
-                `}
-              >
-                {/* Mode tag */}
-                <span className={`inline-block text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 rounded mb-3 ${m.tag}`}>
-                  {m.id}
+          {/* Row 1: Mode cards */}
+          <div className="grid grid-cols-3 gap-3">
+            {MODES.map(m => {
+              const isActive = selected === m.id
+              return (
+                <motion.button
+                  key={m.id}
+                  onClick={() => handleSelect(m.id)}
+                  whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ duration: 0.15 }}
+                  className={`
+                    relative text-left p-5 border rounded-xl transition-colors duration-200
+                    ${m.bg} ${m.border}
+                    ${isActive ? 'ring-2 ring-blue-500 ring-offset-2' : ''}
+                  `}
+                >
+                  <span className={`inline-block text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 rounded mb-3 ${m.tag}`}>
+                    {m.id}
+                  </span>
+                  <p className={`font-semibold text-sm mb-1 ${m.accent}`}>{m.label}</p>
+                  <p className={`text-xs leading-relaxed ${m.id === 'code' ? 'text-zinc-400' : 'text-stone-400'}`}>
+                    {m.tagline}
+                  </p>
+
+                  <AnimatePresence>
+                    {isActive && (
+                      <motion.div
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute top-3 right-3 w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center"
+                      >
+                        <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                          <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.button>
+              )
+            })}
+          </div>
+
+          {/* Row 2: Puzzle shortcuts — under Classic (col 1) and CodeCheckers (col 3) */}
+          <div className="grid grid-cols-3 gap-3 mt-3">
+            {/* Classic Puzzles — col 1 */}
+            <Link
+              href="/puzzles/classic"
+              className="
+                group flex flex-col gap-1.5 p-4
+                border border-stone-200 rounded-xl bg-white
+                hover:border-stone-300 hover:bg-stone-50
+                transition-all duration-150
+              "
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-medium uppercase tracking-widest text-stone-400">
+                  Puzzles
                 </span>
+                <span className="text-[10px] text-stone-300 group-hover:text-stone-500 transition-colors">→</span>
+              </div>
+              <p className="text-sm font-semibold text-stone-700 group-hover:text-stone-900 transition-colors leading-tight">
+                Classic<br />Puzzles
+              </p>
+              <p className="text-[11px] text-stone-400 leading-relaxed">
+                35 positions · click to move · crown in 2 moves
+              </p>
+            </Link>
 
-                <p className={`font-semibold text-sm mb-1 ${m.accent}`}>{m.label}</p>
-                <p className={`text-xs leading-relaxed ${m.id === 'code' ? 'text-zinc-400' : 'text-stone-400'}`}>
-                  {m.tagline}
-                </p>
+            {/* Middle: empty spacer (under Fog of War) */}
+            <div />
 
-                {/* Active check */}
-                <AnimatePresence>
-                  {isActive && (
-                    <motion.div
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="absolute top-3 right-3 w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center"
-                    >
-                      <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                        <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.button>
-            )
-          })}
+            {/* CodeCheckers Puzzles — col 3 */}
+            <Link
+              href="/puzzles"
+              className="
+                group flex flex-col gap-1.5 p-4
+                border border-zinc-800 rounded-xl bg-zinc-950
+                hover:border-zinc-600 hover:bg-zinc-900
+                transition-all duration-150
+              "
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-600">
+                  Puzzles
+                </span>
+                <span className="text-[10px] text-zinc-700 group-hover:text-zinc-400 transition-colors font-mono">→</span>
+              </div>
+              <p className="text-sm font-semibold text-zinc-300 group-hover:text-zinc-100 transition-colors leading-tight">
+                CodeCheckers<br />Puzzles
+              </p>
+              <p className="text-[11px] text-zinc-600 leading-relaxed font-mono">
+                35 puzzles · board.move()
+              </p>
+            </Link>
+          </div>
         </motion.div>
 
         {/* Type picker — slides in when a mode is selected */}
