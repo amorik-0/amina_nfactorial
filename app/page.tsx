@@ -48,12 +48,50 @@ export default function HomePage() {
               Start
             </Link>
           </div>
-          <div className="w-[200px] h-[200px] flex-shrink-0">
-            <img
-              src="/new-format-preview.png"
-              alt="New game formats preview"
-              className="w-full h-full object-cover rounded-2xl"
-            />
+          <div className="w-[200px] h-[200px] flex-shrink-0 bg-sage-300 rounded-2xl flex items-center justify-center overflow-hidden">
+            {(() => {
+              const cs = 25
+              const pieces: Record<string, 'p' | 'g'> = {
+                '2-1': 'g', '2-3': 'g', '2-5': 'g', '2-7': 'g',
+                '3-0': 'p', '3-2': 'p', '3-4': 'p', '3-6': 'p',
+              }
+              return (
+                <div style={{ borderRadius: 10, overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.18)' }}>
+                  {[0, 1, 2, 3].map(r => (
+                    <div key={r} style={{ display: 'flex' }}>
+                      {[0, 1, 2, 3, 4, 5, 6, 7].map(c => {
+                        const isDark = (r + c) % 2 === 1
+                        const fog = r < 2
+                        const piece = pieces[`${r}-${c}`]
+                        return (
+                          <div
+                            key={c}
+                            style={{
+                              width: cs, height: cs, flexShrink: 0,
+                              background: fog
+                                ? (isDark ? '#2A2828' : '#3A3838')
+                                : (isDark ? '#424040' : '#FFFDE1'),
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}
+                          >
+                            {!fog && piece === 'g' && (
+                              <div style={{ width: cs * 0.75, height: cs * 0.75, borderRadius: '50%', background: '#88BD70', boxShadow: '0 1px 4px rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <div style={{ width: '65%', height: '65%', borderRadius: '50%', background: 'radial-gradient(circle at 35% 28%, #E8F5D8, #A9DB94)' }} />
+                              </div>
+                            )}
+                            {!fog && piece === 'p' && (
+                              <div style={{ width: cs * 0.75, height: cs * 0.75, borderRadius: '50%', background: '#E89BC8', boxShadow: '0 1px 4px rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <div style={{ width: '65%', height: '65%', borderRadius: '50%', background: 'radial-gradient(circle at 35% 28%, #FFF0F4, #FFC2E8)' }} />
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
           </div>
         </section>
 
