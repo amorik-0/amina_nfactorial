@@ -81,12 +81,20 @@ export default function HomePage() {
       {/* Nav */}
       <header className="px-8 py-5 flex items-center justify-between border-b border-stone-100">
         <span className="text-sm font-semibold tracking-tight text-stone-900">Checkers</span>
-        <a
-          href="/shop"
-          className="text-xs text-stone-400 hover:text-stone-700 transition-colors"
-        >
-          Shop
-        </a>
+        <div className="flex items-center gap-4">
+          <a
+            href="/puzzles"
+            className="text-xs text-stone-400 hover:text-stone-700 transition-colors"
+          >
+            Puzzles
+          </a>
+          <a
+            href="/shop"
+            className="text-xs text-stone-400 hover:text-stone-700 transition-colors"
+          >
+            Shop
+          </a>
+        </div>
       </header>
 
       {/* Hero */}
