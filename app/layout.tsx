@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Nunito } from 'next/font/google'
 import './globals.css'
 import { Nav } from '@/components/Nav'
+import { Providers } from '@/components/providers/Providers'
 
 const nunito = Nunito({
   subsets: ['latin'],
@@ -22,8 +23,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         className={`${nunito.variable} h-full antialiased`}
         style={{ background: '#F0ECBF', fontFamily: 'var(--font-nunito), Nunito, sans-serif' }}
       >
-        <Nav />
-        {children}
+        <Providers>
+          <Nav />
+          {children}
+        </Providers>
       </body>
     </html>
   )

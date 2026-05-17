@@ -233,6 +233,12 @@ function PlayTypeSelector({
   onBack: () => void
 }) {
   const options = PLAY_TYPES[mode]
+  const [color, setColor] = useState<'red' | 'black'>('red')
+
+  function hrefFor(baseHref: string) {
+    if (baseHref.includes('/multiplayer')) return baseHref
+    return `${baseHref}?color=${color}`
+  }
 
   return (
     <div>
@@ -247,13 +253,30 @@ function PlayTypeSelector({
       <h1 className="text-4xl font-extrabold text-brown-900 mb-2">
         {MODE_LABEL[mode]}
       </h1>
-      <p className="text-brown-700 font-medium mb-10">Play with:</p>
+      <p className="text-brown-700 font-medium mb-6">Play with:</p>
+
+      <div className="mb-8 inline-flex rounded-pill bg-sage-200 p-1 shadow-card-sm">
+        {(['red', 'black'] as const).map(player => (
+          <button
+            key={player}
+            onClick={() => setColor(player)}
+            className={[
+              'rounded-pill px-4 py-2 text-xs font-extrabold transition-colors',
+              color === player
+                ? 'bg-sage-400 text-brown-900 shadow-button'
+                : 'text-brown-700 hover:bg-sage-300',
+            ].join(' ')}
+          >
+            {player === 'red' ? 'Red' : 'Black'}
+          </button>
+        ))}
+      </div>
 
       <div className="flex flex-col gap-4 max-w-md mx-auto">
         {options.map(opt => (
           <Link
             key={opt.label}
-            href={opt.href}
+            href={hrefFor(opt.href)}
             className="
               block w-full
               bg-sage-300 hover:bg-sage-400

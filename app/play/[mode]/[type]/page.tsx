@@ -1,15 +1,15 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, RefreshCcw, Loader, Copy, Check, Wifi, WifiOff } from 'lucide-react'
+import { ArrowLeft, RefreshCcw, Loader, Copy, Check, Wifi, WifiOff, RotateCcw } from 'lucide-react'
 import { useGameStore } from '@/store/gameStore'
 import { Board } from '@/components/game/Board'
 import { Terminal } from '@/components/terminal/Terminal'
 import { createClient } from '@/lib/supabase/client'
-import { applyMove, getValidMoves, checkWin } from '@/lib/game/engine'
-import type { GameMode, GameType, Move, Player } from '@/lib/game/types'
+import { createSnapshot, makeParticipantId, roleForParticipant, type GameSnapshot } from '@/lib/game/stateSnapshot'
+import type { GameMode, GameType, Player, PlayerRole } from '@/lib/game/types'
 
 const VALID_MODES = new Set<GameMode>(['classic', 'fog', 'code'])
 const VALID_TYPES = new Set<GameType>(['local', 'ai', 'multiplayer'])
@@ -29,22 +29,38 @@ function PlayContent() {
   const rawMode = params.mode as string
   const rawType = params.type as string
   const roomIdParam = searchParams.get('roomId') ?? undefined
+  const requestedColor: Player = searchParams.get('color') === 'black' ? 'black' : 'red'
 
   const mode = VALID_MODES.has(rawMode as GameMode) ? (rawMode as GameMode) : null
   const type = VALID_TYPES.has(rawType as GameType) ? (rawType as GameType) : null
 
   const initGame     = useGameStore(s => s.initGame)
   const resetGame    = useGameStore(s => s.resetGame)
+  const loadGameState = useGameStore(s => s.loadGameState)
   const gameState    = useGameStore(s => s.gameState)
   const playerView   = useGameStore(s => s.playerView)
   const isAIThinking = useGameStore(s => s.isAIThinking)
   const setGameState = useGameStore(s => s.setGameState)
+  const setPlayerRole = useGameStore(s => s.setPlayerRole)
 
   // Multiplayer state
-  const [myPlayer, setMyPlayer]           = useState<Player | null>(null)
+  const [myPlayer, setMyPlayer]           = useState<PlayerRole | null>(null)
   const [opponentJoined, setOpponentJoined] = useState(false)
+  const [opponentOnline, setOpponentOnline] = useState(false)
   const [roomId, setRoomId]               = useState<string | null>(null)
   const [copied, setCopied]               = useState(false)
+  const [boardFlipped, setBoardFlipped]   = useState(requestedColor === 'black')
+  const [passOverlay, setPassOverlay]     = useState(false)
+  const [resultMessage, setResultMessage] = useState<string | null>(null)
+  const [drawOfferedBy, setDrawOfferedBy] = useState<string | null>(null)
+  const [multiplayerReady, setMultiplayerReady] = useState(type !== 'multiplayer')
+
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
+  const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
+  const participantIdRef = useRef<string>('')
+  const playersRef = useRef<GameSnapshot['players']>({ red: null, black: null })
+  const lastSavedMoveCountRef = useRef(0)
+  const lastLocalFogMoveRef = useRef(0)
 
   // ── init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -52,6 +68,7 @@ function PlayContent() {
 
     if (type === 'multiplayer') {
       const supabase = createClient()
+      supabaseRef.current = supabase
       let actualRoomId: string
 
       if (!roomIdParam || roomIdParam === 'new') {
@@ -61,63 +78,156 @@ function PlayContent() {
           null, '',
           `/play/${mode}/multiplayer?roomId=${actualRoomId}`
         )
-        setMyPlayer('red')
       } else {
         actualRoomId = roomIdParam
-        setMyPlayer('black')
       }
 
       setRoomId(actualRoomId)
-      initGame(mode, 'multiplayer', actualRoomId)
+      setMultiplayerReady(false)
+      const participantId = makeParticipantId()
+      participantIdRef.current = participantId
+      initGame(mode, 'multiplayer', actualRoomId, 'red')
 
-      // Subscribe to Supabase Realtime
-      const channel = supabase.channel(`game:${actualRoomId}`, {
-        config: { broadcast: { self: false } },
+      let disposed = false
+
+      async function joinRoom() {
+        let { data: row } = await supabase
+          .from('games')
+          .select('board_state')
+          .eq('room_id', actualRoomId)
+          .maybeSingle()
+
+        let snapshot = row?.board_state as GameSnapshot | null
+        if (!snapshot) {
+          snapshot = createSnapshot(mode!, useGameStore.getState().gameState, {
+            red: participantId,
+            black: null,
+          })
+
+          const { error } = await supabase.from('games').insert({
+            room_id: actualRoomId,
+            status: 'waiting',
+            board_state: snapshot,
+          })
+
+          if (error) {
+            const retry = await supabase
+              .from('games')
+              .select('board_state')
+              .eq('room_id', actualRoomId)
+              .maybeSingle()
+            snapshot = retry.data?.board_state as GameSnapshot | null
+          }
+        }
+
+        if (!snapshot) {
+          snapshot = createSnapshot(mode!, useGameStore.getState().gameState, {
+            red: participantId,
+            black: null,
+          })
+        }
+
+        if (!snapshot.players.red) snapshot.players.red = participantId
+        if (
+          snapshot.players.red !== participantId &&
+          !snapshot.players.black
+        ) {
+          snapshot.players.black = participantId
+        }
+
+        playersRef.current = snapshot.players
+        const role = roleForParticipant(snapshot, participantId)
+        setMyPlayer(role)
+        setPlayerRole(role)
+        setBoardFlipped(role === 'black')
+        setOpponentJoined(!!snapshot.players.red && !!snapshot.players.black)
+        setResultMessage(snapshot.result?.type === 'draw'
+          ? 'Game ended in a draw.'
+          : snapshot.result?.winner
+          ? `${snapshot.result.winner === 'red' ? 'Red' : 'Black'} wins.`
+          : null)
+        loadGameState(snapshot.game)
+        lastSavedMoveCountRef.current = snapshot.game.moveHistory.length
+
+        await saveSnapshot(snapshot)
+
+        const channel = supabase.channel(`game:${actualRoomId}`, {
+          config: {
+            broadcast: { self: false },
+            presence: { key: participantId },
+          },
+        })
+        channelRef.current = channel
+
+        channel
+          .on('broadcast', { event: 'game' }, ({ payload }: { payload: MultiplayerPayload }) => {
+            if (payload.from === participantId) return
+
+            if (payload.type === 'move' || payload.type === 'reset' || payload.type === 'result') {
+              if (payload.snapshot) {
+                playersRef.current = payload.snapshot.players
+                loadGameState(payload.snapshot.game)
+                lastSavedMoveCountRef.current = payload.snapshot.game.moveHistory.length
+                setResultMessage(payload.snapshot.result?.type === 'draw'
+                  ? 'Game ended in a draw.'
+                  : payload.snapshot.result?.winner
+                  ? `${payload.snapshot.result.winner === 'red' ? 'Red' : 'Black'} wins.`
+                  : null)
+              }
+              if (payload.type === 'reset') {
+                setDrawOfferedBy(null)
+                setResultMessage(null)
+              }
+            }
+
+            if (payload.type === 'draw_offer') {
+              setDrawOfferedBy(payload.from)
+            }
+          })
+          .on('presence', { event: 'sync' }, () => {
+            const presence = channel.presenceState<{ role: PlayerRole }>()
+            const onlineRoles = Object.values(presence).flat().map(item => item.role)
+            setOpponentOnline(role === 'spectator'
+              ? onlineRoles.includes('red') || onlineRoles.includes('black')
+              : onlineRoles.includes(role === 'red' ? 'black' : 'red'))
+            setOpponentJoined(onlineRoles.includes('red') && onlineRoles.includes('black'))
+          })
+          .subscribe(status => {
+            if (status === 'SUBSCRIBED') {
+              channel.track({ role })
+              setMultiplayerReady(true)
+            }
+          })
+      }
+
+      async function saveSnapshot(snapshot: GameSnapshot) {
+        playersRef.current = snapshot.players
+        await supabase
+          .from('games')
+          .update({
+            board_state: snapshot,
+            status: snapshot.result ? 'finished' : snapshot.players.black ? 'active' : 'waiting',
+          })
+          .eq('room_id', actualRoomId)
+      }
+
+      joinRoom().catch(() => {
+        if (!disposed) setMultiplayerReady(true)
       })
 
-      channel
-        .on('broadcast', { event: 'game' }, ({ payload }: { payload: { type: string; move?: Move } }) => {
-          if (payload.type === 'join') setOpponentJoined(true)
-
-          if (payload.type === 'move' && payload.move) {
-            const move = payload.move
-            const { board, currentPlayer, moveHistory } = useGameStore.getState().gameState
-            const newBoard = applyMove(board, move)
-            const chainMoves = move.captures.length > 0
-              ? getValidMoves(newBoard, currentPlayer, move.to).filter(m => m.captures.length > 0)
-              : []
-            const hasChain = chainMoves.length > 0
-            const nextPlayer: Player = hasChain
-              ? currentPlayer
-              : currentPlayer === 'red' ? 'black' : 'red'
-            const winner = hasChain ? null : checkWin(newBoard, currentPlayer)
-            const pieces = newBoard.flat().filter(Boolean) as NonNullable<typeof newBoard[0][0]>[]
-
-            setGameState({
-              board: newBoard,
-              currentPlayer: nextPlayer,
-              selectedPiece: null,
-              validMoves: [],
-              pieces,
-              winner,
-              moveHistory: [...moveHistory, move],
-              chainCapture: hasChain ? move.to : null,
-            })
-          }
-        })
-        .subscribe(status => {
-          if (status === 'SUBSCRIBED') {
-            channel.send({
-              type: 'broadcast',
-              event: 'game',
-              payload: { type: 'join' },
-            })
-          }
-        })
-
-      return () => { supabase.removeChannel(channel) }
+      return () => {
+        disposed = true
+        const channel = channelRef.current
+        if (channel) supabase.removeChannel(channel)
+        channelRef.current = null
+        setPlayerRole(null)
+      }
     } else {
-      initGame(mode, type)
+      setPlayerRole(null)
+      initGame(mode, type, undefined, requestedColor)
+      setBoardFlipped(requestedColor === 'black')
+      setResultMessage(null)
+      setDrawOfferedBy(null)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, type, roomIdParam])
@@ -125,16 +235,39 @@ function PlayContent() {
   // Broadcast our moves in multiplayer
   const moveCount = gameState.moveHistory.length
   useEffect(() => {
-    if (type !== 'multiplayer' || !roomId || !myPlayer || moveCount === 0) return
-    const lastMove = gameState.moveHistory[moveCount - 1]
+    if (type !== 'multiplayer' || !roomId || !myPlayer || myPlayer === 'spectator' || moveCount === 0) return
+    if (moveCount === lastSavedMoveCountRef.current) return
     const prevPlayer: Player = gameState.currentPlayer === 'red' ? 'black' : 'red'
     if (prevPlayer !== myPlayer) return
 
-    const supabase = createClient()
-    const channel = supabase.channel(`game:${roomId}`)
-    channel.send({ type: 'broadcast', event: 'game', payload: { type: 'move', move: lastMove } })
+    const snapshot = createSnapshot(mode!, gameState, playersRef.current)
+    lastSavedMoveCountRef.current = moveCount
+    supabaseRef.current
+      ?.from('games')
+      .update({
+        board_state: snapshot,
+        status: snapshot.players.black ? 'active' : 'waiting',
+      })
+      .eq('room_id', roomId)
+      .then(() => undefined)
+
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'game',
+      payload: { type: 'move', from: participantIdRef.current, snapshot } satisfies MultiplayerPayload,
+    })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [moveCount])
+
+  useEffect(() => {
+    if (type !== 'local' || mode !== 'fog') return
+    if (moveCount <= lastLocalFogMoveRef.current) {
+      lastLocalFogMoveRef.current = moveCount
+      return
+    }
+    lastLocalFogMoveRef.current = moveCount
+    if (!gameState.chainCapture && !gameState.winner) setPassOverlay(true)
+  }, [gameState.chainCapture, gameState.winner, mode, moveCount, type])
 
   // ── invalid route ─────────────────────────────────────────────────────────
   if (!mode || !type) {
@@ -159,6 +292,98 @@ function PlayContent() {
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
+
+  async function handleNewGame() {
+    resetGame()
+    setResultMessage(null)
+    setDrawOfferedBy(null)
+    setPassOverlay(false)
+
+    if (type !== 'multiplayer' || !roomId || myPlayer === 'spectator') return
+
+    const nextState = useGameStore.getState().gameState
+    const snapshot = createSnapshot(mode!, nextState, playersRef.current)
+    lastSavedMoveCountRef.current = 0
+    await supabaseRef.current
+      ?.from('games')
+      .update({ board_state: snapshot, status: snapshot.players.black ? 'active' : 'waiting' })
+      .eq('room_id', roomId)
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'game',
+      payload: { type: 'reset', from: participantIdRef.current, snapshot } satisfies MultiplayerPayload,
+    })
+  }
+
+  async function finishByResign() {
+    const actor: Player = type === 'multiplayer'
+      ? myPlayer === 'black' ? 'black' : 'red'
+      : gameState.currentPlayer
+    const winner: Player = actor === 'red' ? 'black' : 'red'
+    setGameState({ winner })
+    setResultMessage(`${actor === 'red' ? 'Red' : 'Black'} resigned.`)
+
+    if (type !== 'multiplayer' || !roomId || myPlayer === 'spectator') return
+    const snapshot = createSnapshot(mode!, { ...useGameStore.getState().gameState, winner }, playersRef.current, {
+      type: 'resign',
+      winner,
+      by: participantIdRef.current,
+    })
+    await supabaseRef.current?.from('games').update({ board_state: snapshot, status: 'finished' }).eq('room_id', roomId)
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'game',
+      payload: { type: 'result', from: participantIdRef.current, snapshot } satisfies MultiplayerPayload,
+    })
+  }
+
+  async function handleDraw() {
+    if (type !== 'multiplayer') {
+      setResultMessage('Game ended in a draw.')
+      return
+    }
+    if (!roomId || myPlayer === 'spectator') return
+
+    const participantId = participantIdRef.current
+    if (drawOfferedBy && drawOfferedBy !== participantId) {
+      const snapshot = createSnapshot(mode!, gameState, playersRef.current, {
+        type: 'draw',
+        by: participantId,
+      })
+      setResultMessage('Game ended in a draw.')
+      setDrawOfferedBy(null)
+      await supabaseRef.current?.from('games').update({ board_state: snapshot, status: 'finished' }).eq('room_id', roomId)
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'game',
+        payload: { type: 'result', from: participantId, snapshot } satisfies MultiplayerPayload,
+      })
+      return
+    }
+
+    setDrawOfferedBy(participantId)
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'game',
+      payload: { type: 'draw_offer', from: participantId } satisfies MultiplayerPayload,
+    })
+  }
+
+  const isSpectator = myPlayer === 'spectator'
+  const isMyMultiplayerTurn = type !== 'multiplayer' || (myPlayer !== null && myPlayer !== 'spectator' && myPlayer === gameState.currentPlayer)
+  const boardDisabled = passOverlay || !!resultMessage || (type === 'multiplayer' && !isMyMultiplayerTurn)
+  const drawLabel = type === 'multiplayer' && drawOfferedBy && drawOfferedBy !== participantIdRef.current
+    ? 'Accept draw'
+    : 'Offer draw'
+  const connectionLabel = type === 'multiplayer'
+    ? isSpectator
+      ? 'Spectator'
+      : !opponentJoined
+      ? 'Waiting for opponent'
+      : opponentOnline
+      ? 'Connected'
+      : 'Opponent disconnected'
+    : null
 
   // ── CodeCheckers: dark terminal split-screen ────────────────────────────────
   if (mode === 'code') {
@@ -185,9 +410,9 @@ function PlayContent() {
                   {copied ? <Check size={11} className="text-blue-400" /> : <Copy size={11} />}
                   {copied ? 'Copied' : 'Copy link'}
                 </button>
-                <span className={`flex items-center gap-1 font-mono text-xs ${opponentJoined ? 'text-blue-400' : 'text-zinc-600'}`}>
-                  {opponentJoined ? <Wifi size={11} /> : <WifiOff size={11} />}
-                  {opponentJoined ? 'Connected' : 'Waiting'}
+                <span className={`flex items-center gap-1 font-mono text-xs ${opponentOnline ? 'text-blue-400' : 'text-zinc-600'}`}>
+                  {opponentOnline ? <Wifi size={11} /> : <WifiOff size={11} />}
+                  {connectionLabel}
                 </span>
               </>
             )}
@@ -195,7 +420,7 @@ function PlayContent() {
           </div>
 
           <button
-            onClick={resetGame}
+            onClick={handleNewGame}
             className="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-200 text-xs transition-colors font-mono"
           >
             <RefreshCcw size={12} /> New game
@@ -204,11 +429,12 @@ function PlayContent() {
 
         <div className="flex-1 flex overflow-hidden">
           <div className="flex-1 flex flex-col items-center justify-center bg-zinc-950 border-r border-zinc-800 gap-4 p-6">
-            <Board clientBoard={playerView} />
+            <Board clientBoard={playerView} flipped={boardFlipped} disabled={boardDisabled || !multiplayerReady} />
             <PieceCount gameState={gameState} dark />
+            {resultMessage && <p className="font-mono text-xs text-zinc-500">{resultMessage}</p>}
           </div>
           <div className="w-[380px] shrink-0 flex flex-col">
-            <Terminal />
+            <Terminal disabled={boardDisabled || !multiplayerReady} />
           </div>
         </div>
       </div>
@@ -252,9 +478,9 @@ function PlayContent() {
                 {copied ? <Check size={11} className="text-sage-600" /> : <Copy size={11} />}
                 {copied ? 'Copied' : 'Copy link'}
               </button>
-              <span className={`flex items-center gap-1 text-xs font-bold ${opponentJoined ? 'text-sage-600' : 'text-brown-500'}`}>
-                {opponentJoined ? <Wifi size={11} /> : <WifiOff size={11} />}
-                {opponentJoined ? 'Connected' : 'Waiting'}
+              <span className={`flex items-center gap-1 text-xs font-bold ${opponentOnline ? 'text-sage-600' : 'text-brown-500'}`}>
+                {opponentOnline ? <Wifi size={11} /> : <WifiOff size={11} />}
+                {connectionLabel}
               </span>
             </>
           )}
@@ -263,8 +489,9 @@ function PlayContent() {
         </div>
 
         <button
-          onClick={resetGame}
+          onClick={handleNewGame}
           className="flex items-center gap-1.5 rounded-pill bg-sage-400 px-4 py-2 text-sm font-extrabold text-brown-900 shadow-button hover:bg-sage-500 transition-colors"
+          disabled={type === 'multiplayer' && isSpectator}
         >
           <RefreshCcw size={14} />{' '}
           <span>New game</span>
@@ -289,7 +516,7 @@ function PlayContent() {
 
         {/* Board + eval bar (Classic only) */}
         <div className={isClassic ? 'flex items-stretch gap-2' : undefined}>
-          <Board clientBoard={playerView} />
+          <Board clientBoard={playerView} flipped={boardFlipped} disabled={boardDisabled || !multiplayerReady} />
 
           {/* Eval bar — right of board, Classic mode only */}
           {isClassic && (
@@ -338,6 +565,40 @@ function PlayContent() {
 
         {!isClassic && <PieceCount gameState={gameState} dark={false} />}
 
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <button
+            onClick={() => setBoardFlipped(v => !v)}
+            className="inline-flex items-center gap-1.5 rounded-pill bg-sage-300 px-4 py-2 text-xs font-extrabold text-brown-900 hover:bg-sage-400 transition-colors"
+          >
+            <RotateCcw size={13} />
+            Flip board
+          </button>
+          <button
+            onClick={finishByResign}
+            disabled={isSpectator || !!resultMessage}
+            className="rounded-pill bg-cream-100 px-4 py-2 text-xs font-extrabold text-brown-700 hover:bg-brown-100 disabled:opacity-40 transition-colors"
+          >
+            Resign
+          </button>
+          <button
+            onClick={handleDraw}
+            disabled={isSpectator || !!resultMessage}
+            className="rounded-pill bg-cream-100 px-4 py-2 text-xs font-extrabold text-brown-700 hover:bg-brown-100 disabled:opacity-40 transition-colors"
+          >
+            {drawLabel}
+          </button>
+        </div>
+
+        {drawOfferedBy && !resultMessage && (
+          <p className="text-xs font-bold text-brown-500">
+            {drawOfferedBy === participantIdRef.current ? 'Draw offer sent.' : 'Opponent offered a draw.'}
+          </p>
+        )}
+
+        {resultMessage && (
+          <p className="text-sm font-extrabold text-brown-700">{resultMessage}</p>
+        )}
+
         {gameState.winner && (
           <div
             className="mt-2 px-6 py-4 bg-sage-200 text-center"
@@ -362,9 +623,32 @@ function PlayContent() {
           </div>
         )}
       </main>
+
+      {passOverlay && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-brown-900/95 px-6 text-center">
+          <div className="max-w-sm">
+            <p className="text-xs font-extrabold uppercase tracking-widest text-sage-300">
+              Pass the device
+            </p>
+            <h2 className="mt-3 text-3xl font-extrabold text-cream-100">
+              {gameState.currentPlayer === 'red' ? 'Red' : 'Black'} to move
+            </h2>
+            <button
+              onClick={() => setPassOverlay(false)}
+              className="mt-6 rounded-pill bg-sage-400 px-7 py-3 text-sm font-extrabold text-brown-900 shadow-button hover:bg-sage-500 transition-colors"
+            >
+              Ready
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+
+type MultiplayerPayload =
+  | { type: 'move' | 'reset' | 'result'; from: string; snapshot: GameSnapshot }
+  | { type: 'draw_offer'; from: string }
 
 // ─── shared sub-components ────────────────────────────────────────────────────
 

@@ -7,6 +7,8 @@ import type { ClientBoard } from '@/lib/game/types'
 
 interface BoardProps {
   clientBoard: ClientBoard
+  flipped?: boolean
+  disabled?: boolean
 }
 
 const COLS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
@@ -15,7 +17,7 @@ const ROWS = [8, 7, 6, 5, 4, 3, 2, 1]
 // Design-system frame colour (same as dark squares — single visual block)
 const FRAME = '#424040'
 
-export function Board({ clientBoard }: BoardProps) {
+export function Board({ clientBoard, flipped = false, disabled = false }: BoardProps) {
   const activeSkin = useGameStore(s => s.activeSkin)
   const gameMode   = useGameStore(s => s.gameMode)
   const skin       = getEffectiveSkin(activeSkin, gameMode)
@@ -37,6 +39,10 @@ export function Board({ clientBoard }: BoardProps) {
     </div>
   )
 
+  const rowIndexes = flipped ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7]
+  const colIndexes = flipped ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7]
+  const visibleCols = colIndexes.map(i => COLS[i])
+
   // ── Classic mode: design-system thick dark frame + rounded corners ────────
   // Proportions match the reference image:
   //   frame padding = 13 px  (≈ 30 % of 40 px cell)
@@ -54,7 +60,7 @@ export function Board({ clientBoard }: BoardProps) {
       >
         {/* A-H labels inside the frame (dim cream) */}
         <div className="flex" style={{ marginBottom: 3 }}>
-          {COLS.map(c => (
+          {visibleCols.map(c => (
             <div
               key={c}
               className="w-10 text-center text-[10px] font-bold"
@@ -65,28 +71,34 @@ export function Board({ clientBoard }: BoardProps) {
           ))}
         </div>
 
-        {clientBoard.map((row, r) => (
-          <div key={r} className="flex items-center">
+        {rowIndexes.map((actualRow) => (
+          <div key={actualRow} className="flex items-center">
             <div
               className="w-3 flex items-center justify-center text-[10px] font-bold"
               style={{ color: '#FFFDE1', opacity: 0.45 }}
             >
-              {ROWS[r]}
+              {ROWS[actualRow]}
             </div>
-            {row.map((cell, c) => (
-              <Cell key={`${r}-${c}`} cell={cell} row={r} col={c} />
+            {colIndexes.map((actualCol) => (
+              <Cell
+                key={`${actualRow}-${actualCol}`}
+                cell={clientBoard[actualRow][actualCol]}
+                row={actualRow}
+                col={actualCol}
+                disabled={disabled}
+              />
             ))}
             <div
               className="w-3 flex items-center justify-center text-[10px] font-bold"
               style={{ color: '#FFFDE1', opacity: 0.45 }}
             >
-              {ROWS[r]}
+              {ROWS[actualRow]}
             </div>
           </div>
         ))}
 
         <div className="flex" style={{ marginTop: 3 }}>
-          {COLS.map(c => (
+          {visibleCols.map(c => (
             <div
               key={c}
               className="w-10 text-center text-[10px] font-bold"
@@ -105,7 +117,7 @@ export function Board({ clientBoard }: BoardProps) {
     <div className={`inline-flex flex-col border ${skin.boardBorder}`}>
       <div className="flex">
         <div className="w-6" />
-        {COLS.map(c => (
+        {visibleCols.map(c => (
           <div key={c} className={`w-10 text-center py-1 text-[10px] font-mono ${skin.labelText}`}>
             {c}
           </div>
@@ -113,23 +125,29 @@ export function Board({ clientBoard }: BoardProps) {
         <div className="w-6" />
       </div>
 
-      {clientBoard.map((row, r) => (
-        <div key={r} className="flex">
+      {rowIndexes.map((actualRow) => (
+        <div key={actualRow} className="flex">
           <div className={`w-6 flex items-center justify-center text-[10px] font-mono ${skin.labelText}`}>
-            {ROWS[r]}
+            {ROWS[actualRow]}
           </div>
-          {row.map((cell, c) => (
-            <Cell key={`${r}-${c}`} cell={cell} row={r} col={c} />
+          {colIndexes.map((actualCol) => (
+            <Cell
+              key={`${actualRow}-${actualCol}`}
+              cell={clientBoard[actualRow][actualCol]}
+              row={actualRow}
+              col={actualCol}
+              disabled={disabled}
+            />
           ))}
           <div className={`w-6 flex items-center justify-center text-[10px] font-mono ${skin.labelText}`}>
-            {ROWS[r]}
+            {ROWS[actualRow]}
           </div>
         </div>
       ))}
 
       <div className="flex">
         <div className="w-6" />
-        {COLS.map(c => (
+        {visibleCols.map(c => (
           <div key={c} className={`w-10 text-center py-1 text-[10px] font-mono ${skin.labelText}`}>
             {c}
           </div>

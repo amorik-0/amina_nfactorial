@@ -49,6 +49,8 @@ export interface GameState {
   chainCapture: { row: number; col: number } | null
 }
 
+export type PlayerRole = Player | 'spectator'
+
 // Board visual style + interaction mode
 export type GameMode = 'classic' | 'fog' | 'code'
 

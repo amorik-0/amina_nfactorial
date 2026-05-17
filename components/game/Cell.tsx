@@ -9,9 +9,10 @@ interface CellProps {
   cell: ClientCell
   row: number
   col: number
+  disabled?: boolean
 }
 
-export function Cell({ cell, row, col }: CellProps) {
+export function Cell({ cell, row, col, disabled = false }: CellProps) {
   const activeSkin    = useGameStore(s => s.activeSkin)
   const gameMode      = useGameStore(s => s.gameMode)
   const selectedPiece = useGameStore(s => s.gameState.selectedPiece)
@@ -26,7 +27,7 @@ export function Cell({ cell, row, col }: CellProps) {
     return <div className={`w-10 h-10 flex-shrink-0 ${skin.fogCell}`} />
   }
 
-  const isClickable   = gameMode !== 'code'
+  const isClickable   = gameMode !== 'code' && !disabled
   const isSelected    = selectedPiece?.row === row && selectedPiece?.col === col
   const matchedMove   = validMoves.find(m => m.to.row === row && m.to.col === col)
   const isValidDest   = !!matchedMove

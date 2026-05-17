@@ -42,6 +42,19 @@ function inBounds(row: number, col: number): boolean {
   return row >= 0 && row < 8 && col >= 0 && col < 8
 }
 
+function promoteIfNeeded(piece: Piece, row: number, col: number): Piece {
+  const promoted =
+    (piece.player === 'red' && row === 0) ||
+    (piece.player === 'black' && row === 7)
+
+  return {
+    ...piece,
+    row,
+    col,
+    type: promoted ? 'king' : piece.type,
+  }
+}
+
 // Get all capture moves for a specific piece (including chains)
 function getCapturesForPiece(
   board: (Piece | null)[][],
@@ -82,7 +95,8 @@ function getCapturesForPiece(
 
       // Build a temporary board to explore chain captures
       const tempBoard = board.map(r => [...r])
-      tempBoard[landRow][landCol] = { ...piece, row: landRow, col: landCol }
+      const movedPiece = promoteIfNeeded(piece, landRow, landCol)
+      tempBoard[landRow][landCol] = movedPiece
       tempBoard[row][col] = null
       tempBoard[midRow][midCol] = null
 
@@ -214,16 +228,7 @@ export function applyMove(
 
   // Move piece to destination
   const movedPiece: Piece = {
-    ...piece,
-    row: move.to.row,
-    col: move.to.col,
-  }
-
-  // King promotion
-  if (movedPiece.player === 'red' && move.to.row === 0) {
-    movedPiece.type = 'king'
-  } else if (movedPiece.player === 'black' && move.to.row === 7) {
-    movedPiece.type = 'king'
+    ...promoteIfNeeded(piece, move.to.row, move.to.col),
   }
 
   newBoard[move.to.row][move.to.col] = movedPiece

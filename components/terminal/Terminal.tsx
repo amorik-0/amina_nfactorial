@@ -16,7 +16,7 @@ const T = {
   textBright: '#c8c8e0',
 }
 
-export function Terminal() {
+export function Terminal({ disabled = false }: { disabled?: boolean }) {
   const {
     terminalLog,
     inputValue,
@@ -118,7 +118,7 @@ export function Terminal() {
         value={inputValue}
         onChange={setInputValue}
         onSubmit={submitCommand}
-        disabled={!!gameState.winner || isAIThinking}
+        disabled={disabled || !!gameState.winner || isAIThinking}
       />
     </div>
   )
